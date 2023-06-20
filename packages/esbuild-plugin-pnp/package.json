@@ -11,7 +11,7 @@
     "esbuild": ">=0.10.0"
   },
   "devDependencies": {
-    "@yarnpkg/pnp": "workspace:^",
+    "@yarnpkg/pnp": "2.1.0",
     "esbuild": "npm:esbuild-wasm@^0.11.20"
   },
   "scripts": {
