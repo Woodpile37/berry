@@ -10910,7 +10910,7 @@ const RAW_RUNTIME_STATE =
         "packageDependencies": [\
           ["@yarnpkg/esbuild-plugin-pnp", "virtual:5d170a96e3bd35439131aba7820e7b850e9381656d638624d34e228d96fc2f134ebf73b7eb6235db8cb822a7bcd252e04750d4dfcaeb49408c4e561390950138#workspace:packages/esbuild-plugin-pnp"],\
           ["@types/esbuild", null],\
-          ["@yarnpkg/pnp", "workspace:packages/yarnpkg-pnp"],\
+          ["@yarnpkg/pnp", "npm:2.1.0"],\
           ["esbuild", [\
             "esbuild-wasm",\
             "npm:0.11.20"\
@@ -10927,7 +10927,7 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./packages/esbuild-plugin-pnp/",\
         "packageDependencies": [\
           ["@yarnpkg/esbuild-plugin-pnp", "workspace:packages/esbuild-plugin-pnp"],\
-          ["@yarnpkg/pnp", "workspace:packages/yarnpkg-pnp"],\
+          ["@yarnpkg/pnp", "npm:2.1.0"],\
           ["esbuild", [\
             "esbuild-wasm",\
             "npm:0.11.20"\
@@ -10997,6 +10997,15 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["@yarnpkg/fslib", [\
+      ["npm:2.10.3", {\
+        "packageLocation": "./.yarn/cache/@yarnpkg-fslib-npm-2.10.3-dbfb509869-d7f0c9de3f.zip/node_modules/@yarnpkg/fslib/",\
+        "packageDependencies": [\
+          ["@yarnpkg/fslib", "npm:2.10.3"],\
+          ["@yarnpkg/libzip", "npm:2.3.0"],\
+          ["tslib", "npm:1.14.1"]\
+        ],\
+        "linkType": "HARD"\
+      }],\
       ["workspace:packages/yarnpkg-fslib", {\
         "packageLocation": "./packages/yarnpkg-fslib/",\
         "packageDependencies": [\
@@ -11149,6 +11158,15 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["@yarnpkg/libzip", [\
+      ["npm:2.3.0", {\
+        "packageLocation": "./.yarn/cache/@yarnpkg-libzip-npm-2.3.0-ea36e8470b-c8d403d441.zip/node_modules/@yarnpkg/libzip/",\
+        "packageDependencies": [\
+          ["@yarnpkg/libzip", "npm:2.3.0"],\
+          ["@types/emscripten", "npm:1.39.6"],\
+          ["tslib", "npm:1.14.1"]\
+        ],\
+        "linkType": "HARD"\
+      }],\
       ["workspace:packages/yarnpkg-libzip", {\
         "packageLocation": "./packages/yarnpkg-libzip/",\
         "packageDependencies": [\
@@ -20429,6 +20447,16 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["@yarnpkg/pnp", [\
+      ["npm:2.1.0", {\
+        "packageLocation": "./.yarn/cache/@yarnpkg-pnp-npm-2.1.0-99304d96cb-ad66d4d8b6.zip/node_modules/@yarnpkg/pnp/",\
+        "packageDependencies": [\
+          ["@yarnpkg/pnp", "npm:2.1.0"],\
+          ["@types/node", "npm:13.7.0"],\
+          ["@yarnpkg/fslib", "npm:2.10.3"],\
+          ["tslib", "npm:1.14.1"]\
+        ],\
+        "linkType": "HARD"\
+      }],\
       ["workspace:packages/yarnpkg-pnp", {\
         "packageLocation": "./packages/yarnpkg-pnp/",\
         "packageDependencies": [\
@@ -35927,7 +35955,7 @@ const RAW_RUNTIME_STATE =
           ["levn", "npm:0.4.1"],\
           ["prelude-ls", "npm:1.2.1"],\
           ["type-check", "npm:0.4.0"],\
-          ["word-wrap", "npm:1.2.3"]\
+          ["word-wrap", "npm:1.2.5"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -42965,6 +42993,13 @@ const RAW_RUNTIME_STATE =
         ],\
         "linkType": "HARD"\
       }],\
+      ["npm:1.14.1", {\
+        "packageLocation": "./.yarn/cache/tslib-npm-1.14.1-102499115e-441af59dc4.zip/node_modules/tslib/",\
+        "packageDependencies": [\
+          ["tslib", "npm:1.14.1"]\
+        ],\
+        "linkType": "HARD"\
+      }],\
       ["npm:2.0.3", {\
         "packageLocation": "./.yarn/cache/tslib-npm-2.0.3-62a2b3751d-b83883c166.zip/node_modules/tslib/",\
         "packageDependencies": [\
@@ -44775,10 +44810,10 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["word-wrap", [\
-      ["npm:1.2.3", {\
-        "packageLocation": "./.yarn/cache/word-wrap-npm-1.2.3-7fb15ab002-17267cdb6b.zip/node_modules/word-wrap/",\
+      ["npm:1.2.5", {\
+        "packageLocation": "./.yarn/cache/word-wrap-npm-1.2.5-42d00c4b09-12f65d2aab.zip/node_modules/word-wrap/",\
         "packageDependencies": [\
-          ["word-wrap", "npm:1.2.3"]\
+          ["word-wrap", "npm:1.2.5"]\
         ],\
         "linkType": "HARD"\
       }]\
