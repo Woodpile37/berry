@@ -5641,7 +5641,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@yarnpkg/esbuild-plugin-pnp@workspace:packages/esbuild-plugin-pnp"
   dependencies:
-    "@yarnpkg/pnp": "workspace:^"
+    "@yarnpkg/pnp": "npm:2.1.0"
     esbuild: "npm:esbuild-wasm@^0.11.20"
     tslib: "npm:^2.4.0"
   peerDependencies:
@@ -5676,6 +5676,16 @@ __metadata:
     "@yarnpkg/core": "workspace:^"
   languageName: unknown
   linkType: soft
+
+"@yarnpkg/fslib@npm:^2.1.0":
+  version: 2.10.3
+  resolution: "@yarnpkg/fslib@npm:2.10.3"
+  dependencies:
+    "@yarnpkg/libzip": "npm:^2.3.0"
+    tslib: "npm:^1.13.0"
+  checksum: d7f0c9de3f4cf6134e63147dcfa4d333c716ee2242675e7d6523ebaa952af0683b5a3538da08726a0872fc68dac0cb095a9c8f2692fceaf473095ce199f346b7
+  languageName: node
+  linkType: hard
 
 "@yarnpkg/fslib@workspace:^, @yarnpkg/fslib@workspace:packages/yarnpkg-fslib":
   version: 0.0.0-use.local
@@ -5807,6 +5817,16 @@ __metadata:
     react: ^16.8.4
   languageName: unknown
   linkType: soft
+
+"@yarnpkg/libzip@npm:^2.3.0":
+  version: 2.3.0
+  resolution: "@yarnpkg/libzip@npm:2.3.0"
+  dependencies:
+    "@types/emscripten": "npm:^1.39.6"
+    tslib: "npm:^1.13.0"
+  checksum: c8d403d4411e30716d2d72c763eca620d96c75348402f943c1137e70ed4f9ed65d624109233c0e98b70708bfe3f28bdf7d49207190c2472a7aea66b91cb23a7a
+  languageName: node
+  linkType: hard
 
 "@yarnpkg/libzip@workspace:^, @yarnpkg/libzip@workspace:packages/yarnpkg-libzip":
   version: 0.0.0-use.local
@@ -6317,6 +6337,17 @@ __metadata:
     "@yarnpkg/plugin-git": "workspace:^"
   languageName: unknown
   linkType: soft
+
+"@yarnpkg/pnp@npm:2.1.0":
+  version: 2.1.0
+  resolution: "@yarnpkg/pnp@npm:2.1.0"
+  dependencies:
+    "@types/node": "npm:^13.7.0"
+    "@yarnpkg/fslib": "npm:^2.1.0"
+    tslib: "npm:^1.13.0"
+  checksum: ad66d4d8b62a5b021067e852c41d420203a8b59732ba52cec2daf8151f4dcbba113ffcb4ea5104de1a5032cd5f9af70eb6110cb699a41e39a0b3e0aa4c3d3d05
+  languageName: node
+  linkType: hard
 
 "@yarnpkg/pnp@workspace:^, @yarnpkg/pnp@workspace:packages/yarnpkg-pnp":
   version: 0.0.0-use.local
@@ -25054,6 +25085,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tslib@npm:^1.13.0":
+  version: 1.14.1
+  resolution: "tslib@npm:1.14.1"
+  checksum: 441af59dc42ad4ae57140e62cb362369620c6076845c2c2b0ecc863c1d719ce24fdbc301e9053433fef43075e061bf84b702318ff1204b496a5bba10baf9eb9f
+  languageName: node
+  linkType: hard
+
 "tslib@npm:^2, tslib@npm:^2.0.3, tslib@npm:^2.2.0, tslib@npm:^2.4.0":
   version: 2.4.0
   resolution: "tslib@npm:2.4.0"
@@ -26613,9 +26651,9 @@ __metadata:
   linkType: hard
 
 "word-wrap@npm:^1.2.3":
-  version: 1.2.3
-  resolution: "word-wrap@npm:1.2.3"
-  checksum: 17267cdb6baa9d5452b0998531adafd2df52a25159f27cbb754b2fdcff4af8808019efe4c0a2bcc5ceb63becb30df07c792c0125ad21991266aefadb940df74a
+  version: 1.2.5
+  resolution: "word-wrap@npm:1.2.5"
+  checksum: 12f65d2aab0d37071a952be6390a29fa93d5416abe9eaf9b5839e6bcedd35e4923441a8964727b95a1cf559d9346de766bf46c375eed577f9c5095dc2a1b08b7
   languageName: node
   linkType: hard
 
