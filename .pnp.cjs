@@ -32854,10 +32854,10 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["jquery", [\
-      ["npm:3.4.1", {\
-        "packageLocation": "./.yarn/cache/jquery-npm-3.4.1-4eab2619ac-80fd02ae34.zip/node_modules/jquery/",\
+      ["npm:3.7.0", {\
+        "packageLocation": "./.yarn/cache/jquery-npm-3.7.0-a02a382bf4-ccc6db47ec.zip/node_modules/jquery/",\
         "packageDependencies": [\
-          ["jquery", "npm:3.4.1"]\
+          ["jquery", "npm:3.7.0"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -43366,7 +43366,7 @@ const RAW_RUNTIME_STATE =
         "packageDependencies": [\
           ["typedoc-default-themes", "npm:0.7.2"],\
           ["backbone", "npm:1.4.0"],\
-          ["jquery", "npm:3.4.1"],\
+          ["jquery", "npm:3.7.0"],\
           ["lunr", "npm:2.3.8"],\
           ["underscore", "npm:1.13.4"]\
         ],\
@@ -43377,7 +43377,7 @@ const RAW_RUNTIME_STATE =
         "packageDependencies": [\
           ["typedoc-default-themes", "npm:0.8.0-0"],\
           ["backbone", "npm:1.4.0"],\
-          ["jquery", "npm:3.4.1"],\
+          ["jquery", "npm:3.7.0"],\
           ["lunr", "npm:2.3.8"],\
           ["underscore", "npm:1.13.4"]\
         ],\
