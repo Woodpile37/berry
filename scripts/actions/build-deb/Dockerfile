@@ -1,4 +1,4 @@
-FROM node:20.5.1
+FROM node:20.6.0
 
 LABEL "com.github.actions.name"="build-deb"
 LABEL "com.github.actions.description"="Builds the Yarn Debian and RPM packages"
