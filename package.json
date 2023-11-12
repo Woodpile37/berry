@@ -18,7 +18,7 @@
     "@yarnpkg/cli": "3.0.0",
     "@yarnpkg/core": "2.2.0",
     "@yarnpkg/eslint-config": "0.1.0",
-    "@yarnpkg/fslib": "workspace:^",
+    "@yarnpkg/fslib": "3.0.0",
     "@yarnpkg/sdks": "2.4.1",
     "clipanion": "^3.2.0-rc.10",
     "eslint": "^8.2.0",
