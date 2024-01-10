@@ -1,5 +1,8 @@
-import {Filename, PortablePath, ppath, xfs}  from '@yarnpkg/fslib';
-import {RequestType, startRegistryRecording} from 'pkg-tests-core/sources/utils/tests';
+import {Filename, ppath, xfs} from '@yarnpkg/fslib';
+import {parseSyml}            from '@yarnpkg/parsers';
+import {tests}                from 'pkg-tests-core';
+
+const {RequestType, startRegistryRecording} = tests;
 
 export {};
 
@@ -20,7 +23,18 @@ describe(`Features`, () => {
 
       await run(`install`);
 
-      await expect(xfs.readFilePromise(ppath.join(path, Filename.lockfile), `utf8`)).resolves.toMatchSnapshot();
+      const file = parseSyml(await xfs.readFilePromise(ppath.join(path, Filename.lockfile), `utf8`));
+
+      expect(Object.keys(file)).toEqual([
+        `__metadata`,
+        `native-bar-x64@npm:1.0.0`,
+        `native-foo-x64@npm:1.0.0`,
+        `native-foo-x86@npm:1.0.0`,
+        `native-libc-glibc@npm:1.0.0`,
+        `native-libc-musl@npm:1.0.0`,
+        `optional-native@npm:1.0.0`,
+        `root-workspace-0b6124@workspace:.`,
+      ]);
     }));
 
     it(`shouldn't fetch packages that it won't need`, makeTemporaryEnv({
@@ -186,7 +200,7 @@ describe(`Features`, () => {
 
       await run(`install`);
 
-      const cacheFolder = ppath.join(path, `.yarn/cache` as PortablePath);
+      const cacheFolder = ppath.join(path, `.yarn/cache`);
       const cacheListing = await xfs.readdirPromise(cacheFolder);
       const nativeFile = cacheListing.find(entry => entry.startsWith(`native-foo-x64-`));
 
@@ -211,7 +225,7 @@ describe(`Features`, () => {
 
       await run(`install`);
 
-      const cacheFolder = ppath.join(path, `.yarn/cache` as PortablePath);
+      const cacheFolder = ppath.join(path, `.yarn/cache`);
       const cacheListing = await xfs.readdirPromise(cacheFolder);
       const nativeFile = cacheListing.find(entry => entry.startsWith(`native-foo-x64-`));
 
@@ -240,7 +254,7 @@ describe(`Features`, () => {
 
       await run(`install`);
 
-      const cacheFolder = ppath.join(path, `.yarn/cache` as PortablePath);
+      const cacheFolder = ppath.join(path, `.yarn/cache`);
       const cacheListing = await xfs.readdirPromise(cacheFolder);
       const nativeFile = cacheListing.find(entry => entry.startsWith(`native-foo-x64-`));
 

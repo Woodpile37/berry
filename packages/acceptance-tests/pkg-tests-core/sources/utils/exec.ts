@@ -1,5 +1,9 @@
 import {PortablePath, npath} from '@yarnpkg/fslib';
 import cp                    from 'child_process';
+import {exec}                from 'node:child_process';
+import {promisify}           from 'node:util';
+
+export const execPromise = promisify(exec);
 
 interface Options {
   cwd: PortablePath;
@@ -47,4 +51,14 @@ export const execFile = (
       }
     });
   });
+};
+
+export const execGitInit = async (
+  options: Options,
+) => {
+  await execFile(`git`, [`init`], options);
+  await execFile(`git`, [`config`, `user.email`, `you@example.com`], options);
+  await execFile(`git`, [`config`, `user.name`, `Your Name`], options);
+  await execFile(`git`, [`config`, `commit.gpgSign`, `false`], options);
+  await execFile(`git`, [`config`, `core.hooksPath`, `no-hooks`], options);
 };

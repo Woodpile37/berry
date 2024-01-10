@@ -27,7 +27,7 @@ interface PackageInformation extends CombinedPackument {
 }
 
 // eslint-disable-next-line arca/no-default-export
-export default class InfoCommand extends BaseCommand {
+export default class NpmInfoCommand extends BaseCommand {
   static paths = [
     [`npm`, `info`],
   ];
@@ -135,7 +135,7 @@ export default class InfoCommand extends BaseCommand {
             report.reportWarning(MessageName.UNNAMED, `Unmet range ${structUtils.prettyRange(configuration, descriptor.range)}; falling back to the latest version`);
             leadWithSeparator = true;
           }
-        } else if (Object.prototype.hasOwnProperty.call(result[`dist-tags`], descriptor.range)) {
+        } else if (Object.hasOwn(result[`dist-tags`], descriptor.range)) {
           version = result[`dist-tags`][descriptor.range];
         } else if (descriptor.range !== `unknown`) {
           report.reportWarning(MessageName.UNNAMED, `Unknown tag ${structUtils.prettyRange(configuration, descriptor.range)}; falling back to the latest version`);

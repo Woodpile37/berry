@@ -1,10 +1,10 @@
-import {BaseCommand, WorkspaceRequiredError}                              from '@yarnpkg/cli';
-import {Cache, Configuration, Manifest, Project, StreamReport, Workspace} from '@yarnpkg/core';
-import {structUtils}                                                      from '@yarnpkg/core';
-import {Command, Option, Usage}                                           from 'clipanion';
+import {BaseCommand, WorkspaceRequiredError}                from '@yarnpkg/cli';
+import {Cache, Configuration, Manifest, Project, Workspace} from '@yarnpkg/core';
+import {structUtils}                                        from '@yarnpkg/core';
+import {Command, Option, Usage}                             from 'clipanion';
 
 // eslint-disable-next-line arca/no-default-export
-export default class WorkspacesFocus extends BaseCommand {
+export default class WorkspacesFocusCommand extends BaseCommand {
   static paths = [
     [`workspaces`, `focus`],
   ];
@@ -99,15 +99,12 @@ export default class WorkspacesFocus extends BaseCommand {
     // persist the project state on the disk (otherwise all workspaces would
     // lose their dependencies!).
 
-    const report = await StreamReport.start({
-      configuration,
+    return await project.installWithNewReport({
       json: this.json,
       stdout: this.context.stdout,
-      includeLogs: true,
-    }, async (report: StreamReport) => {
-      await project.install({cache, report, persistProject: false});
+    }, {
+      cache,
+      persistProject: false,
     });
-
-    return report.exitCode();
   }
 }

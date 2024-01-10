@@ -1,10 +1,9 @@
 const {
-  fs: {readFile},
   tests: {startPackageServer},
 } = require(`pkg-tests-core`);
 const {parseSyml} = require(`@yarnpkg/parsers`);
 const {execUtils, semverUtils} = require(`@yarnpkg/core`);
-const {npath} = require(`@yarnpkg/fslib`);
+const {npath, xfs} = require(`@yarnpkg/fslib`);
 
 const TESTED_URLS = {
   // We've picked util-deprecate because it doesn't have any dependency, and
@@ -41,7 +40,7 @@ describe(`Protocols`, () => {
           async ({path, run, source}) => {
             await run(`install`);
 
-            const content = await readFile(`${path}/yarn.lock`, `utf8`);
+            const content = await xfs.readFilePromise(`${path}/yarn.lock`, `utf8`);
             const lock = parseSyml(content);
 
             const key = `util-deprecate@${url}`;
@@ -184,7 +183,6 @@ describe(`Protocols`, () => {
           await expect(source(`require('npm-has-prepack')`)).resolves.toEqual(42);
         },
       ),
-      45000,
     );
 
     test(
@@ -243,6 +241,25 @@ describe(`Protocols`, () => {
             code: 1,
             stdout: expect.stringContaining(`Saving the new release`),
           });
+        },
+      ),
+    );
+
+    test(
+      `it should not use Corepack to install repositories that are installed via Yarn 2+`,
+      makeTemporaryEnv(
+        {
+          dependencies: {
+            [`no-lockfile-project`]: startPackageServer().then(url => `${url}/repositories/no-lockfile-project.git`),
+          },
+        },
+        async ({path, run, source}) => {
+          await expect(run(`install`, {
+            env: {
+              COREPACK_ROOT: npath.join(npath.fromPortablePath(path), `404`),
+              YARN_ENABLE_INLINE_BUILDS: `true`,
+            },
+          })).resolves.toBeDefined();
         },
       ),
     );

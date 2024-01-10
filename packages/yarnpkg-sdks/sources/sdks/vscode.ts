@@ -1,4 +1,4 @@
-import {PortablePath, npath, ppath}                                                   from '@yarnpkg/fslib';
+import {Filename, PortablePath, npath, ppath}                                         from '@yarnpkg/fslib';
 import {PnpApi}                                                                       from '@yarnpkg/pnp';
 
 import {Wrapper, GenerateIntegrationWrapper, GenerateDefaultWrapper, IntegrationSdks} from '../generateSdk';
@@ -48,11 +48,9 @@ export const generateAstroLanguageServerWrapper: GenerateIntegrationWrapper = as
 export const generateEslintWrapper: GenerateIntegrationWrapper = async (pnpApi: PnpApi, target: PortablePath, wrapper: Wrapper) => {
   await addVSCodeWorkspaceConfiguration(pnpApi, VSCodeConfiguration.settings, {
     [`eslint.nodePath`]: npath.fromPortablePath(
-      ppath.dirname(ppath.dirname(ppath.dirname(
-        wrapper.getProjectPathTo(
-          `lib/api.js` as PortablePath,
-        ),
-      ))),
+      ppath.dirname(ppath.dirname(
+        wrapper.getProjectPathTo(Filename.manifest),
+      )),
     ),
   });
 
@@ -67,7 +65,7 @@ export const generatePrettierWrapper: GenerateIntegrationWrapper = async (pnpApi
   await addVSCodeWorkspaceConfiguration(pnpApi, VSCodeConfiguration.settings, {
     [`prettier.prettierPath`]: npath.fromPortablePath(
       wrapper.getProjectPathTo(
-        `index.js` as PortablePath,
+        ppath.normalize(wrapper.manifest.main),
       ),
     ),
   });
@@ -75,6 +73,22 @@ export const generatePrettierWrapper: GenerateIntegrationWrapper = async (pnpApi
   await addVSCodeWorkspaceConfiguration(pnpApi, VSCodeConfiguration.extensions, {
     [`recommendations`]: [
       `esbenp.prettier-vscode`,
+    ],
+  });
+};
+
+export const generateRelayCompilerWrapper: GenerateIntegrationWrapper = async (pnpApi: PnpApi, target: PortablePath, wrapper: Wrapper) => {
+  await addVSCodeWorkspaceConfiguration(pnpApi, VSCodeConfiguration.settings, {
+    [`relay.pathToRelay`]: npath.fromPortablePath(
+      wrapper.getProjectPathTo(
+        `cli.js` as PortablePath,
+      ),
+    ),
+  });
+
+  await addVSCodeWorkspaceConfiguration(pnpApi, VSCodeConfiguration.extensions, {
+    [`recommendations`]: [
+      `meta.relay`,
     ],
   });
 };
@@ -99,6 +113,7 @@ export const generateSvelteLanguageServerWrapper: GenerateIntegrationWrapper = a
         `bin/server.js` as PortablePath,
       ),
     ),
+    [`svelte.language-server.runtime-args`]: [`--loader`, `./.pnp.loader.mjs`],
   });
 
   await addVSCodeWorkspaceConfiguration(pnpApi, VSCodeConfiguration.extensions, {
@@ -129,6 +144,7 @@ export const VSCODE_SDKS: IntegrationSdks = [
   [`@astrojs/language-server`, generateAstroLanguageServerWrapper],
   [`eslint`, generateEslintWrapper],
   [`prettier`, generatePrettierWrapper],
+  [`relay-compiler`, generateRelayCompilerWrapper],
   [`typescript-language-server`, null],
   [`typescript`, generateTypescriptWrapper],
   [`svelte-language-server`, generateSvelteLanguageServerWrapper],

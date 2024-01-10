@@ -1,7 +1,7 @@
 import {BaseCommand, WorkspaceRequiredError}                                  from '@yarnpkg/cli';
 import {Configuration, MessageName, miscUtils, Project, stringifyMessageName} from '@yarnpkg/core';
 import {scriptUtils, structUtils, formatUtils}                                from '@yarnpkg/core';
-import {NativePath, Filename, ppath, xfs, npath}                              from '@yarnpkg/fslib';
+import {NativePath, ppath, xfs, npath}                                        from '@yarnpkg/fslib';
 import {Command, Option, Usage}                                               from 'clipanion';
 
 // eslint-disable-next-line arca/no-default-export
@@ -44,14 +44,14 @@ export default class DlxCommand extends BaseCommand {
     Configuration.telemetry = null;
 
     return await xfs.mktempPromise(async baseDir => {
-      const tmpDir = ppath.join(baseDir, `dlx-${process.pid}` as Filename);
+      const tmpDir = ppath.join(baseDir, `dlx-${process.pid}`);
       await xfs.mkdirPromise(tmpDir);
 
-      await xfs.writeFilePromise(ppath.join(tmpDir, `package.json` as Filename), `{}\n`);
-      await xfs.writeFilePromise(ppath.join(tmpDir, `yarn.lock` as Filename), ``);
+      await xfs.writeFilePromise(ppath.join(tmpDir, `package.json`), `{}\n`);
+      await xfs.writeFilePromise(ppath.join(tmpDir, `yarn.lock`), ``);
 
-      const targetYarnrc = ppath.join(tmpDir, `.yarnrc.yml` as Filename);
-      const projectCwd = await Configuration.findProjectCwd(this.context.cwd, Filename.lockfile);
+      const targetYarnrc = ppath.join(tmpDir, `.yarnrc.yml`);
+      const projectCwd = await Configuration.findProjectCwd(this.context.cwd);
 
       // We set enableGlobalCache to true for dlx calls to speed it up but only if the
       // project it's run in has enableGlobalCache set to false, otherwise we risk running into
@@ -72,7 +72,7 @@ export default class DlxCommand extends BaseCommand {
       };
 
       const sourceYarnrc = projectCwd !== null
-        ? ppath.join(projectCwd, `.yarnrc.yml` as Filename)
+        ? ppath.join(projectCwd, `.yarnrc.yml`)
         : null;
 
       if (sourceYarnrc !== null && xfs.existsSync(sourceYarnrc)) {

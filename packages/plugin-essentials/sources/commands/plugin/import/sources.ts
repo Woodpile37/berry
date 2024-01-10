@@ -14,7 +14,7 @@ const buildWorkflow = ({pluginName, noMinify}: {noMinify: boolean, pluginName: s
 ];
 
 // eslint-disable-next-line arca/no-default-export
-export default class PluginDlSourcesCommand extends BaseCommand {
+export default class PluginImportSourcesCommand extends BaseCommand {
   static paths = [
     [`plugin`, `import`, `from`, `sources`],
   ];
@@ -63,7 +63,7 @@ export default class PluginDlSourcesCommand extends BaseCommand {
 
     const target = typeof this.installPath !== `undefined`
       ? ppath.resolve(this.context.cwd, npath.toPortablePath(this.installPath))
-      : ppath.resolve(npath.toPortablePath(tmpdir()), `yarnpkg-sources` as Filename, hashUtils.makeHash(this.repository).slice(0, 6) as Filename);
+      : ppath.resolve(npath.toPortablePath(tmpdir()), `yarnpkg-sources`, hashUtils.makeHash(this.repository).slice(0, 6) as Filename);
 
     const report = await StreamReport.start({
       configuration,
@@ -75,7 +75,7 @@ export default class PluginDlSourcesCommand extends BaseCommand {
       const identStr = structUtils.stringifyIdent(ident);
       const data = await getAvailablePlugins(configuration, YarnVersion);
 
-      if (!Object.prototype.hasOwnProperty.call(data, identStr))
+      if (!Object.hasOwn(data, identStr))
         throw new ReportError(MessageName.PLUGIN_NAME_NOT_FOUND, `Couldn't find a plugin named "${identStr}" on the remote registry. Note that only the plugins referenced on our website (https://github.com/yarnpkg/berry/blob/master/plugins.yml) can be built and imported from sources.`);
 
       const pluginSpec = identStr;
@@ -110,7 +110,7 @@ export async function buildAndSavePlugin(pluginSpec: string, {context, noMinify}
 
   report.reportSeparator();
 
-  const pluginPath = ppath.resolve(target, `packages/${pluginName}/bundles/${pluginSpec}.js` as PortablePath);
+  const pluginPath = ppath.resolve(target, `packages/${pluginName}/bundles/${pluginSpec}.js`);
   const pluginBuffer = await xfs.readFilePromise(pluginPath);
 
   await savePlugin(pluginSpec, pluginBuffer, {project, report});

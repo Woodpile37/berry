@@ -1,7 +1,7 @@
 const {npath, xfs} = require(`@yarnpkg/fslib`);
 const {
   exec: {execFile},
-  fs: {writeFile, writeJson, mkdirp},
+  fs: {writeFile},
 } = require(`pkg-tests-core`);
 
 describe(`Commands`, () => {
@@ -48,9 +48,10 @@ describe(`Commands`, () => {
         await expect(run(`stage`, `-n`, {cwd: path})).resolves.toMatchObject({
           stdout: [
             `${npath.fromPortablePath(`${path}/.pnp.cjs`)}\n`,
-            `${npath.fromPortablePath(`${path}/.yarn/global/cache/no-deps-npm-1.0.0-cf533b267a-0.zip`)}\n`,
+            `${npath.fromPortablePath(`${path}/.yarn/global/metadata/npm/3fb1ad/localhost/no-deps.json`)}\n`,
+            `${npath.fromPortablePath(`${path}/.yarn/global/cache/no-deps-npm-1.0.0-cf533b267a-0c0.zip`)}\n`,
             `${npath.fromPortablePath(`${path}/.yarn/cache/.gitignore`)}\n`,
-            `${npath.fromPortablePath(`${path}/.yarn/cache/no-deps-npm-1.0.0-cf533b267a-8bd88a447c.zip`)}\n`,
+            `${npath.fromPortablePath(`${path}/.yarn/cache/no-deps-npm-1.0.0-cf533b267a-af041f19ff.zip`)}\n`,
             `${npath.fromPortablePath(`${path}/package.json`)}\n`,
             `${npath.fromPortablePath(`${path}/yarn.lock`)}\n`,
           ].join(``),
@@ -74,7 +75,7 @@ describe(`Commands`, () => {
         await execFile(`git`, [`config`, `user.email`, `john.doe@example.org`], {cwd: path});
         await execFile(`git`, [`config`, `commit.gpgSign`, `false`], {cwd: path});
 
-        await mkdirp(`${path}/new-package`);
+        await xfs.mkdirPromise(`${path}/new-package`);
         await run(`${path}/new-package`, `init`);
 
         await expect(run(`stage`, `-c`, `-n`, {cwd: path})).resolves.toMatchObject({
@@ -85,7 +86,7 @@ describe(`Commands`, () => {
         await execFile(`git`, [`commit`, `-m`, `wip`], {cwd: path});
 
         await xfs.removePromise(`${path}/new-package/package.json`);
-        await writeJson(`${path}/package.json`, {
+        await xfs.writeJsonPromise(`${path}/package.json`, {
           name: `my-commit-package`,
           dependencies: {
             [`deps1`]: `2.0.0`,

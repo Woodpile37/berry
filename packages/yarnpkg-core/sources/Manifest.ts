@@ -96,7 +96,7 @@ export class Manifest {
   static readonly hardDependencies: Array<HardDependencies> = [`dependencies`, `devDependencies`];
 
   static async tryFind(path: PortablePath, {baseFs = new NodeFS()}: {baseFs?: FakeFS<PortablePath>} = {}) {
-    const manifestPath = ppath.join(path, `package.json` as Filename);
+    const manifestPath = ppath.join(path, `package.json`);
 
     try {
       return await Manifest.fromFile(manifestPath, {baseFs});
@@ -722,10 +722,10 @@ export class Manifest {
 
   setRawField(name: string, value: any, {after = []}: {after?: Array<string>} = {}) {
     const afterSet = new Set(after.filter(key => {
-      return Object.prototype.hasOwnProperty.call(this.raw, key);
+      return Object.hasOwn(this.raw, key);
     }));
 
-    if (afterSet.size === 0 || Object.prototype.hasOwnProperty.call(this.raw, name)) {
+    if (afterSet.size === 0 || Object.hasOwn(this.raw, name)) {
       this.raw[name] = value;
     } else {
       const oldRaw = this.raw;
@@ -821,7 +821,6 @@ export class Manifest {
     } else {
       delete data.browser;
     }
-
 
     if (this.bin.size === 1 && this.name !== null && this.bin.has(this.name.name)) {
       data.bin = this.bin.get(this.name.name)!;

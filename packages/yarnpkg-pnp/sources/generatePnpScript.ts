@@ -1,6 +1,7 @@
+import {Filename}                from '@yarnpkg/fslib';
+
 import {generatePrettyJson}      from './generatePrettyJson';
 import {generateSerializedState} from './generateSerializedState';
-// @ts-expect-error
 import getTemplate               from './hook';
 import {SerializedState}         from './types';
 import {PnpSettings}             from './types';
@@ -40,12 +41,13 @@ function generateInlinedSetup(data: SerializedState) {
   ].join(``);
 }
 
-function generateSplitSetup(dataLocation: string) {
+function generateSplitSetup() {
   return [
     `function $$SETUP_STATE(hydrateRuntimeState, basePath) {\n`,
+    `  const fs = require('fs');\n`,
     `  const path = require('path');\n`,
-    `  const dataLocation = path.resolve(__dirname, ${JSON.stringify(dataLocation)});\n`,
-    `  return hydrateRuntimeState(require(dataLocation), {basePath: basePath || path.dirname(dataLocation)});\n`,
+    `  const pnpDataFilepath = path.resolve(__dirname, ${JSON.stringify(Filename.pnpData)});\n`,
+    `  return hydrateRuntimeState(JSON.parse(fs.readFileSync(pnpDataFilepath, 'utf8')), {basePath: basePath || __dirname});\n`,
     `}\n`,
   ].join(``);
 }
@@ -59,10 +61,10 @@ export function generateInlinedScript(settings: PnpSettings): string {
   return loaderFile;
 }
 
-export function generateSplitScript(settings: PnpSettings & {dataLocation: string}): {dataFile: string, loaderFile: string} {
+export function generateSplitScript(settings: PnpSettings): {dataFile: string, loaderFile: string} {
   const data = generateSerializedState(settings);
 
-  const setup = generateSplitSetup(settings.dataLocation);
+  const setup = generateSplitSetup();
   const loaderFile = generateLoader(settings.shebang, setup);
 
   return {dataFile: generateJsonString(data), loaderFile};

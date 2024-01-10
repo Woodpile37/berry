@@ -29,7 +29,7 @@ describe(`Features`, () => {
     );
 
     test(
-      `it should report collapsed mismatched peer dependency warnings when a set of mismatched peerDependency requirements is detected`,
+      `it should report collapsed a peer dependency warning when a set of mismatched peerDependency requirements is detected`,
       makeTemporaryEnv(
         {
           dependencies: {
@@ -40,7 +40,7 @@ describe(`Features`, () => {
         async ({path, run, source}) => {
           const {stdout} = await run(`install`);
 
-          expect(stdout).toMatch(/provides no-deps \(p[0-9a-f]{5}\) with version 1.1.0, which doesn't satisfy what mismatched-peer-deps-lvl0 and some of its descendants request/);
+          expect(stdout).toMatch(/no-deps is listed by your project with version 1\.1\.0, which doesn't satisfy what mismatched-peer-deps-lvl0 \(p[a-f0-9]{5}\) and other dependencies request \(1\.0\.0\)/);
         },
       ),
     );
