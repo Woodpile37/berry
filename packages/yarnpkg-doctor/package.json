@@ -1,18 +1,31 @@
 {
   "name": "@yarnpkg/doctor",
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
+=======
+  "version": "3.1.4",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "bin": "./sources/boot-cli-dev.js",
   "dependencies": {
     "@yarnpkg/cli": "workspace:^",
     "@yarnpkg/core": "workspace:^",
     "@yarnpkg/fslib": "workspace:^",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
     "globby": "^11.0.1",
     "micromatch": "^4.0.2",
     "p-limit": "^2.2.0",
     "tslib": "^2.4.0",
     "typescript": "4.8.0-beta"
+=======
+    "clipanion": "3.2.0-rc.4",
+    "globby": "^11.0.1",
+    "micromatch": "^4.0.2",
+    "p-limit": "^2.2.0",
+    "tslib": "^1.13.0",
+    "typescript": "5.2.0-beta"
+>>>>>>> upstream/cherry-pick/next-release
   },
   "devDependencies": {
     "@types/micromatch": "^4.0.1",

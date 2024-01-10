@@ -3,6 +3,7 @@ import {S_IFREG}                       from 'constants';
 import fs                              from 'fs';
 
 import {makeEmptyArchive, ZipFS}       from '../sources/ZipFS';
+import {SAFE_TIME}                     from '../sources/constants';
 import {PortablePath, ppath, Filename} from '../sources/path';
 import {xfs, statUtils}                from '../sources';
 
@@ -95,7 +96,7 @@ describe(`ZipFS`, () => {
     const tmpfile = ppath.resolve(xfs.mktempSync(), `test.zip` as Filename);
     const zipFs = new ZipFS(tmpfile, {libzip, create: true});
 
-    zipFs.mkdirPromise(`/dir` as PortablePath);
+    zipFs.mkdirSync(`/dir` as PortablePath);
     zipFs.writeFileSync(`/dir/file` as PortablePath, `file content`);
 
     zipFs.symlinkSync(`dir/file` as PortablePath, `linkToFileA` as PortablePath);
@@ -706,6 +707,21 @@ describe(`ZipFS`, () => {
     expect(new ZipFS(buffer, {libzip}).readdirSync(PortablePath.root)).toHaveLength(0);
   });
 
+  it(`should support getting the buffer from an empty in-memory zip archive (unlink after write)`, () => {
+    const libzip = getLibzipSync();
+
+    const zipFs = new ZipFS(null, {libzip});
+
+    zipFs.writeFileSync(`/foo.txt` as PortablePath, `foo`);
+    zipFs.unlinkSync(`/foo.txt` as PortablePath);
+
+    const buffer = zipFs.getBufferAndClose();
+
+    expect(buffer).toStrictEqual(makeEmptyArchive());
+
+    expect(new ZipFS(buffer, {libzip}).readdirSync(PortablePath.root)).toHaveLength(0);
+  });
+
   ifNotWin32It(`should preserve the umask`, async () => {
     const tmpdir = xfs.mktempSync();
     const archive = `${tmpdir}/archive.zip` as PortablePath;
@@ -864,13 +880,13 @@ describe(`ZipFS`, () => {
   it(`should support fd in writeFile and readFile`, async () => {
     const zipFs = new ZipFS(null, {libzip: getLibzipSync()});
 
-    zipFs.mkdirPromise(`/dir` as PortablePath);
+    zipFs.mkdirSync(`/dir` as PortablePath);
     zipFs.writeFileSync(`/dir/file` as PortablePath, `file content`);
 
     const fd = zipFs.openSync(`/dir/file` as PortablePath, `r`);
     zipFs.writeFileSync(fd, `new content`);
 
-    expect(zipFs.readFilePromise(fd, `utf8`)).resolves.toEqual(`new content`);
+    await expect(zipFs.readFilePromise(fd, `utf8`)).resolves.toEqual(`new content`);
 
     await zipFs.writeFilePromise(fd, `new new content`);
 
@@ -907,10 +923,17 @@ describe(`ZipFS`, () => {
     const zipFs = new ZipFS(null, {libzip: getLibzipSync()});
 
     // File doesn't exist
+<<<<<<< HEAD
     expect(() => zipFs.readFileSync(`/foo` as PortablePath, ``)).toThrowError(`ENOENT`);
 
     // Parent entry doesn't exist
     expect(() => zipFs.readFileSync(`/foo/bar` as PortablePath, ``)).toThrowError(`ENOENT`);
+=======
+    expect(() => zipFs.readFileSync(`/foo` as PortablePath)).toThrowError(`ENOENT`);
+
+    // Parent entry doesn't exist
+    expect(() => zipFs.readFileSync(`/foo/bar` as PortablePath)).toThrowError(`ENOENT`);
+>>>>>>> upstream/cherry-pick/next-release
 
     zipFs.discardAndClose();
   });
@@ -966,4 +989,20 @@ describe(`ZipFS`, () => {
       code: `ENOENT`,
     });
   });
+<<<<<<< HEAD
+=======
+
+  // https://github.com/nih-at/libzip/issues/146
+  // https://github.com/yarnpkg/berry/pull/647
+  // https://github.com/arcanis/libzip/commit/5f6dc0f43f23d4dd143f504270bb9c5de34c80a7
+  it(`should be able to update the mtime after adding a file`, () => {
+    const zipFs = new ZipFS(null, {libzip: getLibzipSync()});
+    zipFs.writeFileSync(`/foo.txt` as PortablePath, ``);
+    zipFs.utimesSync(`/foo.txt` as PortablePath, SAFE_TIME, SAFE_TIME);
+
+    expect(zipFs.statSync(`/foo.txt` as PortablePath).mtimeMs).toEqual(SAFE_TIME * 1000);
+
+    zipFs.discardAndClose();
+  });
+>>>>>>> upstream/cherry-pick/next-release
 });

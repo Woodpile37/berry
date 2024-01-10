@@ -45,6 +45,19 @@ const VALID_COMMANDS = [
 ];
 
 const INVALID_COMMANDS = [
+<<<<<<< HEAD
+=======
+  // Empty shell lines
+  ...[
+    // Only fish supports these
+    `;;`,
+    `echo foo;;`,
+    // Only zsh and fish support these
+    `; ;`,
+    `echo foo; ;`,
+  ],
+
+>>>>>>> upstream/cherry-pick/next-release
   `echo }`,
   `echo foo}`,
 
@@ -127,8 +140,8 @@ describe(`Shell parser`, () => {
     });
   });
 
-  describe(`String parse`, () => {
-    it(`should parse parse double quote string currectly`, () => {
+  describe(`Strings`, () => {
+    it(`should parse double quoted strings correctly`, () => {
       for (const [original, raw] of DOUBLE_QUOTE_STRING_ESCAPE_TESTS) {
         expect(parseShell(`echo "${original}"`)).toStrictEqual([expect.objectContaining({
           command: expect.objectContaining({
@@ -143,7 +156,7 @@ describe(`Shell parser`, () => {
       }
     });
 
-    it(`should parse parse ANSI-C quote string currectly`, () => {
+    it(`should parse ANSI-C strings correctly`, () => {
       for (const [original, raw] of ANSI_C_STRING_ESCAPE_TESTS) {
         expect(parseShell(`echo $'${original}'`)).toStrictEqual([expect.objectContaining({
           command: expect.objectContaining({
@@ -162,6 +175,9 @@ describe(`Shell parser`, () => {
 
 const STRINGIFIER_TESTS: Array<[string, string]> = [
   [`echo foo`, `echo foo`],
+  [`echo parapapa`, `echo parapapa`],
+  [`echo 'foo bar'`, `echo 'foo bar'`],
+  [`echo "foo' bar'"`, `echo "foo' bar'"`],
   [`echo foo; echo bar`, `echo foo; echo bar`],
   [`echo foo; echo bar;`, `echo foo; echo bar`],
   [`echo foo &`, `echo foo &`],
@@ -180,7 +196,7 @@ const STRINGIFIER_TESTS: Array<[string, string]> = [
   [`FOO=bar echo foo`, `FOO=bar echo foo`],
   [`FOO=bar BAZ=qux`, `FOO=bar BAZ=qux`],
   [`FOO=$'\\x09'`, `FOO=$'\\t'`],
-  [`FOO=$'\\u0027'`, `FOO=$'\\''`],
+  [`FOO=$'\\u0027'`, `FOO="'"`],
   [`FOO=$'\\U0001F601'`, `FOO=😁`],
 ];
 

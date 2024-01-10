@@ -1,15 +1,27 @@
 {
   "name": "@yarnpkg/plugin-npm-cli",
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
+=======
+  "version": "3.4.1",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "dependencies": {
     "@yarnpkg/fslib": "workspace:^",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
     "enquirer": "^2.3.6",
     "micromatch": "^4.0.2",
     "semver": "^7.5.2",
     "tslib": "^2.4.0",
+=======
+    "clipanion": "3.2.0-rc.4",
+    "enquirer": "^2.3.6",
+    "micromatch": "^4.0.2",
+    "semver": "^7.1.2",
+    "tslib": "^1.13.0",
+>>>>>>> upstream/cherry-pick/next-release
     "typanion": "^3.3.0"
   },
   "peerDependencies": {

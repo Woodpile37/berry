@@ -226,7 +226,12 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
     },
   }],
   // https://github.com/tajo/react-portal/pull/233
+<<<<<<< HEAD
   [`react-portal@*`, {
+=======
+  // https://github.com/tajo/react-portal/commit/daf85792c2fce25a3481b6f9132ef61a110f3d78
+  [`react-portal@<4.2.2`, {
+>>>>>>> upstream/cherry-pick/next-release
     peerDependencies: {
       'react-dom': `^15.0.0-0 || ^16.0.0-0 || ^17.0.0-0`,
     },
@@ -401,7 +406,11 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
     },
   }],
   // https://github.com/tj/consolidate.js/pull/339
+<<<<<<< HEAD
   [`consolidate@*`, {
+=======
+  [`consolidate@<=0.16.0`, {
+>>>>>>> upstream/cherry-pick/next-release
     peerDependencies: {
       velocityjs: `^2.0.1`,
       tinyliquid: `^0.2.34`,
@@ -536,13 +545,21 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
     },
   }],
   // https://github.com/salesforce-ux/scss-parser/pull/43
+<<<<<<< HEAD
   [`scss-parser@*`, {
+=======
+  [`scss-parser@<=1.0.5`, {
+>>>>>>> upstream/cherry-pick/next-release
     dependencies: {
       lodash: `^4.17.21`,
     },
   }],
   // https://github.com/salesforce-ux/query-ast/pull/25
+<<<<<<< HEAD
   [`query-ast@*`, {
+=======
+  [`query-ast@<1.0.5`, {
+>>>>>>> upstream/cherry-pick/next-release
     dependencies: {
       lodash: `^4.17.21`,
     },
@@ -800,7 +817,11 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
     },
   }],
   // https://github.com/wemaintain/auto-relay/pull/95
+<<<<<<< HEAD
   [`auto-relay@*`, {
+=======
+  [`auto-relay@<=0.14.0`, {
+>>>>>>> upstream/cherry-pick/next-release
     peerDependencies: {
       'reflect-metadata': `^0.1.13`,
     },
@@ -893,9 +914,13 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
       webpack: `>=4`,
     },
     peerDependenciesMeta: {
+<<<<<<< HEAD
       typescript: {
         optional: true,
       },
+=======
+      typescript: optionalPeerDep,
+>>>>>>> upstream/cherry-pick/next-release
     },
   }],
   // https://github.com/asyncapi/asyncapi-react/pull/614
@@ -905,4 +930,75 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
       'react-dom': `>=16.8.0`,
     },
   }],
+<<<<<<< HEAD
+=======
+  // https://github.com/xojs/xo/pull/678
+  [`xo@*`, {
+    peerDependencies: {
+      webpack: `>=1.11.0`,
+    },
+    peerDependenciesMeta: {
+      webpack: optionalPeerDep,
+    },
+  }],
+  // https://github.com/gatsbyjs/gatsby/pull/36230
+  [`babel-plugin-remove-graphql-queries@<=4.20.0-next.0`, {
+    dependencies: {
+      '@babel/types': `^7.15.4`,
+    },
+  }],
+  // https://github.com/gatsbyjs/gatsby/pull/36230
+  [`gatsby-plugin-page-creator@<=4.20.0-next.1`, {
+    dependencies: {
+      'fs-extra': `^10.1.0`,
+    },
+  }],
+  // https://github.com/gatsbyjs/gatsby/pull/36230
+  [`gatsby-plugin-utils@<=3.14.0-next.1`, {
+    dependencies: {
+      fastq: `^1.13.0`,
+    },
+    peerDependencies: {
+      graphql: `^15.0.0`,
+    },
+  }],
+  // https://github.com/gatsbyjs/gatsby/pull/33724
+  [`gatsby-plugin-mdx@<3.1.0-next.1`, {
+    dependencies: {
+      mkdirp: `^1.0.4`,
+    },
+  }],
+  // https://github.com/gatsbyjs/gatsby/pull/33170
+  [`gatsby-plugin-mdx@^2`, {
+    peerDependencies: {
+      gatsby: `^3.0.0-next`,
+    },
+  }],
+  // https://github.com/thecodrr/fdir/pull/76
+  // https://github.com/thecodrr/fdir/pull/80
+  [`fdir@<=5.2.0`, {
+    peerDependencies: {
+      picomatch: `2.x`,
+    },
+    peerDependenciesMeta: {
+      picomatch: optionalPeerDep,
+    },
+  }],
+  // https://github.com/leonardfactory/babel-plugin-transform-typescript-metadata/pull/61
+  [`babel-plugin-transform-typescript-metadata@<=0.3.2`, {
+    peerDependencies: {
+      "@babel/core": `^7`,
+      "@babel/traverse": `^7`,
+    },
+    peerDependenciesMeta: {
+      "@babel/traverse": optionalPeerDep,
+    },
+  }],
+  // https://github.com/graphql-compose/graphql-compose/pull/398
+  [`graphql-compose@>=9.0.10`, {
+    peerDependencies: {
+      graphql: `^14.2.0 || ^15.0.0 || ^16.0.0`,
+    },
+  }],
+>>>>>>> upstream/cherry-pick/next-release
 ];

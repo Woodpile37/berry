@@ -1,6 +1,10 @@
 {
   "name": "@yarnpkg/plugin-npm",
+<<<<<<< HEAD
   "version": "3.0.0-rc.14",
+=======
+  "version": "2.7.4",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "dependencies": {

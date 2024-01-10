@@ -16,12 +16,14 @@
     "@yarnpkg/fslib": "workspace:^",
     "@yarnpkg/monorepo": "workspace:^",
     "@yarnpkg/parsers": "workspace:^",
+    "@yarnpkg/pnp": "workspace:^",
     "lodash": "^4.17.15",
     "pkg-tests-core": "workspace:^",
     "semver": "^7.1.2",
-    "tar": "^6.0.5"
+    "tar": "^6.0.5",
+    "tslib": "^1.13.0"
   },
   "engines": {
-    "node": ">=14.15.0"
+    "node": ">=12 <14 || 14.2 - 14.9 || >14.10.0"
   }
 }

@@ -5,16 +5,6 @@ const yarnrcRegexp = /^yarnPath:/;
 describe(`Commands`, () => {
   describe(`set version`, () => {
     test(
-      `it shouldn't set yarnPath if corepack is enabled and the version is semver`,
-      makeTemporaryEnv({}, {
-        env: {COREPACK_ROOT: `/path/to/corepack`},
-      }, async ({path, run, source}) => {
-        await run(`set`, `version`, `3.0.0`);
-        await check(path, {corepackVersion: `3.0.0`, usePath: false});
-      }),
-    );
-
-    test(
       `it should set yarnPath if corepack is disabled, even when the version is semver`,
       makeTemporaryEnv({}, {
         env: {COREPACK_ROOT: undefined},
@@ -27,7 +17,10 @@ describe(`Commands`, () => {
     test(
       `it should always set yarnPath if one already exists`,
       makeTemporaryEnv({}, {
-        env: {COREPACK_ROOT: `/path/to/corepack`},
+        env: {
+          COREPACK_ROOT: `/path/to/corepack`,
+          YARN_IS_TEST_ENV: undefined,
+        },
       }, async ({path, run, source}) => {
         // To force yarnPath to be set; followed by a sanity check
         await run(`set`, `version`, `3.0.0`, {env: {COREPACK_ROOT: undefined}});
@@ -37,27 +30,6 @@ describe(`Commands`, () => {
         await check(path, {corepackVersion: `3.0.0`, usePath: true});
       }),
     );
-
-    test(
-      `it should always set yarnPath if --yarn-path is set`,
-      makeTemporaryEnv({}, {
-        env: {COREPACK_ROOT: `/path/to/corepack`},
-      }, async ({path, run, source}) => {
-        await run(`set`, `version`, `3.0.0`, `--yarn-path`);
-        await check(path, {corepackVersion: `3.0.0`, usePath: true});
-      }),
-    );
-
-    test(
-      `it should never set yarnPath if --no-yarn-path is set`,
-      makeTemporaryEnv({}, {
-        env: {COREPACK_ROOT: undefined},
-      }, async ({path, run, source}) => {
-        await run(`set`, `version`, `3.0.0`, `--no-yarn-path`);
-        await check(path, {corepackVersion: `3.0.0`, usePath: false});
-      }),
-    );
-
     test(
       `it should prevent using --no-yarn-path with arbitrary files`,
       makeTemporaryEnv({}, {
@@ -71,15 +43,53 @@ describe(`Commands`, () => {
     );
 
     test(
-      `it should set yarnPath if the version is an arbitrary file`,
+      `it should set yarnPath even if yarnPath is set outside of the project`,
       makeTemporaryEnv({}, {
         env: {COREPACK_ROOT: undefined},
       }, async ({path, run, source}) => {
-        const yarnIndirection = ppath.join(path, `custom-yarn.cjs` as Filename);
-        await xfs.writeFilePromise(yarnIndirection, ``);
-
-        await run(`set`, `version`, yarnIndirection);
+        await run(`set`, `version`, `self`);
         await check(path, {corepackVersion: /[0-9]+\./, usePath: true});
+
+        const projectDir = ppath.join(path, `project` as Filename);
+        await xfs.mkdirPromise(projectDir);
+        await xfs.writeJsonPromise(ppath.join(projectDir, Filename.manifest), {});
+        await xfs.writeFilePromise(ppath.join(projectDir, Filename.lockfile), ``);
+
+        await run(`set`, `version`, `self`, {cwd: projectDir});
+        await check(projectDir, {corepackVersion: /[0-9]+\./, usePath: true});
+      }),
+    );
+
+    test(
+      `it shouldn't set the version when using '--only-if-needed' and a yarnPath is already set`,
+      makeTemporaryEnv({}, {
+        env: {COREPACK_ROOT: undefined},
+      }, async ({path, run, source}) => {
+        await run(`set`, `version`, `self`);
+
+        const before = await xfs.readFilePromise(ppath.join(path, Filename.rc), `utf8`);
+        await run(`set`, `version`, `3.0.0`, `--only-if-needed`);
+        const after = await xfs.readFilePromise(ppath.join(path, Filename.rc), `utf8`);
+
+        expect(before).toEqual(after);
+      }),
+    );
+
+    test(
+      `it should set yarnPath when using '--only-if-needed' even if yarnPath is set outside of the project`,
+      makeTemporaryEnv({}, {
+        env: {COREPACK_ROOT: undefined},
+      }, async ({path, run, source}) => {
+        await run(`set`, `version`, `self`);
+        await check(path, {corepackVersion: /[0-9]+\./, usePath: true});
+
+        const projectDir = ppath.join(path, `project` as Filename);
+        await xfs.mkdirPromise(projectDir);
+        await xfs.writeJsonPromise(ppath.join(projectDir, Filename.manifest), {});
+        await xfs.writeFilePromise(ppath.join(projectDir, Filename.lockfile), ``);
+
+        await run(`set`, `version`, `self`, `--only-if-needed`, {cwd: projectDir});
+        await check(projectDir, {corepackVersion: /[0-9]+\./, usePath: true});
       }),
     );
   });

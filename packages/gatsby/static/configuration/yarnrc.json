@@ -26,7 +26,7 @@
       "format": "uri-reference",
       "default": "./.yarn/cache"
     },
-    "httpsCaFilePath": {
+    "caFilePath": {
       "_package": "@yarnpkg/core",
       "description": "Path to file containing one or multiple Certificate Authority signing certificates",
       "type": "string",
@@ -55,7 +55,7 @@
     "checksumBehavior": {
       "_package": "@yarnpkg/core",
       "description": "If `throw` (the default), Yarn will throw an exception on `yarn install` if it detects that a package doesn't match the checksum stored within the lockfile. If `update`, the lockfile checksum will be updated to match the new value. If `ignore`, the checksum check will not happen.",
-      "enum": ["throw", "update", "ignore"],
+      "enum": ["throw", "update", "ignore", "reset"],
       "default": "throw"
     },
     "cloneConcurrency": {
@@ -105,7 +105,7 @@
     },
     "enableColors": {
       "_package": "@yarnpkg/core",
-      "description": "If true (by default detects terminal capabilities), Yarn will format its pretty-print its output by using colors to differentiate important parts of its messages.",
+      "description": "If true (by default detects terminal capabilities), Yarn will format its pretty-print output by using colors to differentiate important parts of its messages.",
       "type": "boolean",
       "examples": [true]
     },
@@ -123,7 +123,7 @@
     },
     "enableImmutableCache": {
       "_package": "@yarnpkg/core",
-      "description": "If true, Yarn will refuse the change the cache in any way (whether it would add files or remove them) when running `yarn install`.",
+      "description": "If true, Yarn will refuse to change the cache in any way (whether it would add files or remove them) when running `yarn install`.",
       "type": "boolean",
       "default": false
     },
@@ -171,7 +171,7 @@
     },
     "enableScripts": {
       "_package": "@yarnpkg/core",
-      "description": "If false, Yarn will not execute the `postInstall` scripts when installing the project. Note that you can now also disable scripts on a per-package basis thanks to `dependenciesMeta`.",
+      "description": "If false, Yarn will not execute the `postinstall` scripts from third-party packages when installing the project (workspaces will still see their postinstall scripts evaluated, as they're assumed to be safe if you're running an install within them). Note that you can now also disable scripts on a per-package basis thanks to `dependenciesMeta`.",
       "type": "boolean",
       "default": true
     },
@@ -183,7 +183,7 @@
     },
     "enableTelemetry": {
       "_package": "@yarnpkg/core",
-      "description": "If true (the default outside of CI environments), Yarn will periodically send anonymous data to our servers tracking some usage information such as the number of dependency in your project, how many install you ran, etc. Consult the [Telemetry](/advanced/telemetry) page for more details about it.",
+      "description": "If true (the default outside of CI environments), Yarn will periodically send anonymous data to our servers tracking some usage information such as the number of dependencies in your project, how many installs you ran, etc. Consult the [Telemetry](/advanced/telemetry) page for more details about it.",
       "type": "boolean",
       "examples": [true]
     },
@@ -371,8 +371,8 @@
           "description": "The hostname to override settings for (glob patterns are supported)",
           "type": "object",
           "properties": {
-            "httpsCaFilePath": {
-              "$ref": "#/properties/httpsCaFilePath"
+            "caFilePath": {
+              "$ref": "#/properties/caFilePath"
             },
             "enableNetwork": {
               "$ref": "#/properties/enableNetwork"
@@ -390,7 +390,7 @@
               "$ref": "#/properties/httpsProxy"
             }
           },
-          "_exampleKeys": ["httpsCaFilePath", "enableNetwork", "httpProxy", "httpsCertFilePath", "httpsKeyFilePath", "httpsProxy"]
+          "_exampleKeys": ["caFilePath", "enableNetwork", "httpProxy", "httpsCertFilePath", "httpsKeyFilePath", "httpsProxy"]
         }
       },
       "_exampleKeys": ["*.example.com"]
@@ -413,7 +413,7 @@
       "description": "If set to `hardlinks-local` Yarn will utilize hardlinks to reduce disk space consumption inside `node_modules` directories in a current project. With `hardlinks-global` Yarn will use global content addressable storage to reduce `node_modules` size across all the projects using this option.",
       "type": "string",
       "enum": ["classic", "hardlinks-local", "hardlinks-global"],
-      "default": "hardlinks-local"
+      "default": "classic"
     },
     "nodeLinker": {
       "_package": "@yarnpkg/plugin-pnp",
@@ -489,7 +489,7 @@
       "type": "object",
       "patternProperties": {
         "^(?:^[a-zA-Z][a-zA-Z0-9+-.]*:)?[^\\s]*$": {
-          "description": "This key represent the registry that's covered by the settings defined in the nested object. The protocol is optional (using `https://npm.pkg.github.com` would work just as well).",
+          "description": "This key represents the registry that's covered by the settings defined in the nested object. The protocol is optional (using `https://npm.pkg.github.com` would work just as well).",
           "type": "object",
           "properties": {
             "npmAlwaysAuth": {
@@ -555,7 +555,7 @@
     },
     "packageExtensions": {
       "_package": "@yarnpkg/core",
-      "description": "Some packages may have been specified incorrectly with regard to their dependencies - for example with one dependency being missing, causing Yarn to refuse it the access. The `packageExtensions` fields offer a way to extend the existing package definitions with additional information. If you use it, consider sending a PR upstream and contributing your extension to the [`plugin-compat` database](https://github.com/yarnpkg/berry/blob/master/packages/extensions/sources/index.ts).\nNote: This field is made to add dependencies; if you need to rewrite existing ones, prefer the [`resolutions`](/configuration/manifest#resolutions) field.",
+      "description": "Some packages may have been specified incorrectly with regard to their dependencies - for example with one dependency being missing, causing Yarn to refuse it the access. The `packageExtensions` fields offer a way to extend the existing package definitions with additional information. If you use it, consider sending a PR upstream and contributing your extension to the [`plugin-compat` database](https://github.com/yarnpkg/berry/blob/master/packages/yarnpkg-extensions/sources/index.ts).\nNote: This field is made to add dependencies; if you need to rewrite existing ones, prefer the [`resolutions`](/configuration/manifest#resolutions) field.",
       "type": "object",
       "patternProperties": {
         "^(?:@([^/]+?)/)?([^/]+?)(?:@(.+))$": {
@@ -716,7 +716,7 @@
     },
     "rcFilename": {
       "_package": "@yarnpkg/core",
-      "description": "This setting defines the name of the files that Yarn looks for when resolving the rc files. For obvious reasons this settings cannot be set within rc files, and must be defined in the environment using the `YARN_RC_FILENAME` variable.",
+      "description": "This setting defines the name of the files that Yarn looks for when resolving the rc files. For obvious reasons, this setting cannot be set within rc files, and must be defined in the environment using the `YARN_RC_FILENAME` variable.",
       "type": "string",
       "pattern": "^[^<>:;,?\"*|/]+$",
       "default": ".yarnrc.yml"
@@ -736,13 +736,13 @@
           "_exampleItems": ["current", "darwin", "linux", "win32"]
         },
         "cpu": {
-          "description": "The list of CPUs to cover.",
+          "description": "The list of CPU architectures to cover. See https://nodejs.org/docs/latest/api/process.html#processarch for the architectures supported by Node.js",
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": [],
-          "_exampleItems": ["current", "x86", "ia32"]
+          "_exampleItems": ["current", "x64", "ia32"]
         },
         "libc": {
           "description": "The list of standard C libraries to cover.",
@@ -767,12 +767,6 @@
       "description": "By default, we don't assign unique IDs in the telemetry we send, so we have no way to know which data originates from which project. This setting can be used to force a user ID to be sent to our telemetry server. Frankly, it's only useful in some very specific use cases. For example, we use it on the Yarn repository in order to exclude our own usage from the public dashboards (since we necessarily run Yarn more often here than anywhere else, the resulting data would be biased).",
       "type": "string",
       "examples": ["yarnpkg/berry"]
-    },
-    "tsEnableAutoTypes": {
-      "_package": "@yarnpkg/plugin-typescript",
-      "description": "If true, Yarn will automatically add `@types` dependencies when running `yarn add` with packages that don't provide their own typings (as reported by the Algolia npm database). This behaviour is enabled by default if you have a tsconfig file at the root of your project.",
-      "type": "boolean",
-      "examples": [true]
     },
     "unsafeHttpWhitelist": {
       "_package": "@yarnpkg/core",

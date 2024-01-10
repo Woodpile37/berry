@@ -1,7 +1,11 @@
 {
   "name": "@yarnpkg/plugin-pnp",
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
   "stableVersion": "3.2.2",
+=======
+  "version": "3.2.14",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "dependencies": {
@@ -9,7 +13,11 @@
     "@yarnpkg/fslib": "workspace:^",
     "@yarnpkg/plugin-stage": "workspace:^",
     "@yarnpkg/pnp": "workspace:^",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
+=======
+    "clipanion": "3.2.0-rc.4",
+>>>>>>> upstream/cherry-pick/next-release
     "micromatch": "^4.0.2",
     "semver": "^7.5.2",
     "tslib": "^2.4.0"

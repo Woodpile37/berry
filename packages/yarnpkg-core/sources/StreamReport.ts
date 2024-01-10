@@ -18,6 +18,7 @@ export type StreamReportOptions = {
   includeInfos?: boolean;
   includeLogs?: boolean;
   includeWarnings?: boolean;
+  includePrefix?: boolean;
   json?: boolean;
   stdout: Writable;
 };
@@ -41,7 +42,7 @@ const now = new Date();
 // We only want to support environments that will out-of-the-box accept the
 // characters we want to use. Others can enforce the style from the project
 // configuration.
-const supportsEmojis = [`iTerm.app`, `Apple_Terminal`].includes(process.env.TERM_PROGRAM!) || !!process.env.WT_SESSION;
+const supportsEmojis = [`iTerm.app`, `Apple_Terminal`, `WarpTerminal`, `vscode`].includes(process.env.TERM_PROGRAM!) || !!process.env.WT_SESSION;
 
 const makeRecord = <T>(obj: {[key: string]: T}) => obj;
 const PROGRESS_STYLES = makeRecord({
@@ -142,6 +143,7 @@ export class StreamReport extends Report {
   }
 
   private configuration: Configuration;
+  private includePrefix: boolean;
   private includeFooter: boolean;
   private includeInfos: boolean;
   private includeWarnings: boolean;
@@ -158,7 +160,7 @@ export class StreamReport extends Report {
   private lastCacheMiss: Locator | null = null;
 
   private warningCount: number = 0;
-  private errorCount: number = 0;
+  private errors: Array<[MessageName, string]> = [];
 
   private startTime: number = Date.now();
 
@@ -184,6 +186,7 @@ export class StreamReport extends Report {
     configuration,
     stdout,
     json = false,
+    includePrefix = true,
     includeFooter = true,
     includeLogs = !json,
     includeInfos = includeLogs,
@@ -198,6 +201,7 @@ export class StreamReport extends Report {
     this.configuration = configuration;
     this.forgettableBufferSize = forgettableBufferSize;
     this.forgettableNames = new Set([...forgettableNames, ...BASE_FORGETTABLE_NAMES]);
+    this.includePrefix = includePrefix;
     this.includeFooter = includeFooter;
     this.includeInfos = includeInfos;
     this.includeWarnings = includeWarnings;
@@ -219,7 +223,7 @@ export class StreamReport extends Report {
   }
 
   hasErrors() {
-    return this.errorCount > 0;
+    return this.errors.length > 0;
   }
 
   exitCode() {
@@ -314,8 +318,12 @@ export class StreamReport extends Report {
       reportFooter: elapsedTime => {
         this.indent -= 1;
 
-        if (GROUP !== null && !this.json && this.includeInfos)
+        if (GROUP !== null && !this.json && this.includeInfos) {
           this.stdout.write(GROUP.end(what));
+          for (const [name, text] of this.errors) {
+            this.reportErrorImpl(name, text);
+          }
+        }
 
         if (this.configuration.get(`enableTimers`) && elapsedTime > 200) {
           this.reportInfo(null, `└ Completed in ${formatUtils.pretty(this.configuration, elapsedTime, formatUtils.Type.DURATION)}`);
@@ -374,8 +382,7 @@ export class StreamReport extends Report {
 
     const formattedName = this.formatNameWithHyperlink(name);
     const prefix = formattedName ? `${formattedName}: ` : ``;
-
-    const message = `${formatUtils.pretty(this.configuration, `➤`, `blueBright`)} ${prefix}${this.formatIndent()}${text}`;
+    const message = `${this.formatPrefix(prefix, `blueBright`)}${text}`;
 
     if (!this.json) {
       if (this.forgettableNames.has(name)) {
@@ -408,22 +415,26 @@ export class StreamReport extends Report {
     const prefix = formattedName ? `${formattedName}: ` : ``;
 
     if (!this.json) {
-      this.writeLineWithForgettableReset(`${formatUtils.pretty(this.configuration, `➤`, `yellowBright`)} ${prefix}${this.formatIndent()}${text}`);
+      this.writeLineWithForgettableReset(`${this.formatPrefix(prefix, `yellowBright`)}${text}`);
     } else {
       this.reportJson({type: `warning`, name, displayName: this.formatName(name), indent: this.formatIndent(), data: text});
     }
   }
 
   reportError(name: MessageName, text: string) {
-    this.errorCount += 1;
+    this.errors.push([name, text]);
 
+    this.reportErrorImpl(name, text);
+  }
+
+  reportErrorImpl(name: MessageName, text: string) {
     this.commit();
 
     const formattedName = this.formatNameWithHyperlink(name);
     const prefix = formattedName ? `${formattedName}: ` : ``;
 
     if (!this.json) {
-      this.writeLineWithForgettableReset(`${formatUtils.pretty(this.configuration, `➤`, `redBright`)} ${prefix}${this.formatIndent()}${text}`, {truncate: false});
+      this.writeLineWithForgettableReset(`${this.formatPrefix(prefix, `redBright`)}${text}`, {truncate: false});
     } else {
       this.reportJson({type: `error`, name, displayName: this.formatName(name), indent: this.formatIndent(), data: text});
     }
@@ -493,7 +504,7 @@ export class StreamReport extends Report {
 
     let installStatus = ``;
 
-    if (this.errorCount > 0)
+    if (this.errors.length > 0)
       installStatus = `Failed with errors`;
     else if (this.warningCount > 0)
       installStatus = `Done with warnings`;
@@ -505,7 +516,7 @@ export class StreamReport extends Report {
       ? `${installStatus} in ${timing}`
       : installStatus;
 
-    if (this.errorCount > 0) {
+    if (this.errors.length > 0) {
       this.reportError(MessageName.UNNAMED, message);
     } else if (this.warningCount > 0) {
       this.reportWarning(MessageName.UNNAMED, message);
@@ -682,6 +693,10 @@ export class StreamReport extends Report {
       configuration: this.configuration,
       json: this.json,
     });
+  }
+
+  private formatPrefix(prefix: string, caretColor: string) {
+    return this.includePrefix ? `${formatUtils.pretty(this.configuration, `➤`, caretColor)} ${prefix}${this.formatIndent()}` : ``;
   }
 
   private formatNameWithHyperlink(name: MessageName | null) {

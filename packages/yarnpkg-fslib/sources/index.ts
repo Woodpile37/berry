@@ -3,13 +3,19 @@ import * as statUtils from './statUtils';
 
 export {constants};
 
+<<<<<<< HEAD
 export type {LinkStrategy} from './algorithms/copyPromise';
 export {setupCopyIndex}    from './algorithms/copyPromise';
 export {opendir}           from './algorithms/opendir';
+=======
+export {LinkStrategy}            from './algorithms/copyPromise';
+export {opendir, CustomDir}      from './algorithms/opendir';
+>>>>>>> upstream/cherry-pick/next-release
 
 export {statUtils};
 
 export {normalizeLineEndings}          from './FakeFS';
+export type {BufferEncodingOrBuffer}   from './FakeFS';
 export type {CreateReadStreamOptions}  from './FakeFS';
 export type {CreateWriteStreamOptions} from './FakeFS';
 export type {Dirent, Dir, SymlinkType} from './FakeFS';

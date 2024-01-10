@@ -1,24 +1,38 @@
 {
   "name": "@yarnpkg/builder",
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
   "stableVersion": "3.2.3",
+=======
+  "version": "3.3.1",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "bin": "./sources/boot-cli-dev.js",
   "dependencies": {
     "@yarnpkg/cli": "workspace:^",
     "@yarnpkg/core": "workspace:^",
-    "@yarnpkg/esbuild-plugin-pnp": "workspace:^",
     "@yarnpkg/fslib": "workspace:^",
     "chalk": "^3.0.0",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
     "esbuild": "npm:esbuild-wasm@^0.11.20",
     "semver": "^7.5.2",
     "tslib": "^2.4.0"
+=======
+    "clipanion": "3.2.0-rc.4",
+    "esbuild": "npm:esbuild-wasm@^0.15.15",
+    "semver": "^7.1.2",
+    "tslib": "^1.13.0"
+>>>>>>> upstream/cherry-pick/next-release
   },
   "devDependencies": {
     "@types/semver": "^7.1.0",
     "@yarnpkg/monorepo": "workspace:^",
+<<<<<<< HEAD
     "typescript": "4.8.0-beta"
+=======
+    "typescript": "5.2.0-beta"
+>>>>>>> upstream/cherry-pick/next-release
   },
   "scripts": {
     "postpack": "rm -rf lib",

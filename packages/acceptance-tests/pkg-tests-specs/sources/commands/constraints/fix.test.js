@@ -3,6 +3,12 @@ import {xfs}          from '@yarnpkg/fslib';
 import {environments} from './environments';
 
 describe(`Commands`, () => {
+  const config = {
+    plugins: [
+      require.resolve(`@yarnpkg/monorepo/scripts/plugin-constraints.js`),
+    ],
+  };
+
   const manifest = {
     workspaces: [
       `packages/*`,
@@ -18,7 +24,7 @@ describe(`Commands`, () => {
   };
 
   describe(`constraints --fix`, () => {
-    test(`test apply fix to dependencies`, makeTemporaryEnv(manifest, async ({path, run, source}) => {
+    test(`test apply fix to dependencies`, makeTemporaryEnv(manifest, config, async ({path, run, source}) => {
       await xfs.writeFilePromise(`${path}/constraints.pro`, `
       gen_enforced_dependency('.', 'is-number', '2.0.0', dependencies).
       `);
@@ -31,7 +37,7 @@ describe(`Commands`, () => {
       expect(fixedManifest.license).toBe(`MIT`);
     }));
 
-    test(`test apply fix to fields`, makeTemporaryEnv(manifest, async ({path, run, source}) => {
+    test(`test apply fix to fields`, makeTemporaryEnv(manifest, config, async ({path, run, source}) => {
       await xfs.writeFilePromise(`${path}/constraints.pro`, `
       gen_enforced_field('.', 'license', 'BSD-2-Clause').
       `);
@@ -44,7 +50,7 @@ describe(`Commands`, () => {
       expect(fixedManifest.license).toBe(`BSD-2-Clause`);
     }));
 
-    test(`test apply fix to fields and manifests`, makeTemporaryEnv(manifest, async ({path, run, source}) => {
+    test(`test apply fix to fields and manifests`, makeTemporaryEnv(manifest, config, async ({path, run, source}) => {
       await xfs.writeFilePromise(`${path}/constraints.pro`, `
       gen_enforced_dependency('.', 'is-number', '2.0.0', dependencies).
       gen_enforced_field('.', 'license', 'BSD-2-Clause').
@@ -58,7 +64,7 @@ describe(`Commands`, () => {
       expect(fixedManifest.license).toBe(`BSD-2-Clause`);
     }));
 
-    test(`test applying fix shouldn't duplicate workspaces`, makeTemporaryEnv(manifest, async ({path, run, source}) => {
+    test(`test applying fix shouldn't duplicate workspaces`, makeTemporaryEnv(manifest, config, async ({path, run, source}) => {
       await xfs.writeFilePromise(`${path}/constraints.pro`, `
       gen_enforced_dependency('.', 'is-number', '2.0.0', dependencies).
       gen_enforced_field('.', 'license', 'BSD-2-Clause').
@@ -71,7 +77,7 @@ describe(`Commands`, () => {
       expect(fixedManifest.workspaces.length).toBe(1);
     }));
 
-    it(`should preserve the raw manifest data when applying a fix`, makeTemporaryEnv(manifest, async ({path, run, source}) => {
+    it(`should preserve the raw manifest data when applying a fix`, makeTemporaryEnv(manifest, config, async ({path, run, source}) => {
       await xfs.writeFilePromise(`${path}/constraints.pro`, `
       gen_enforced_dependency('.', 'is-number', null, dependencies).
       `);
@@ -84,8 +90,8 @@ describe(`Commands`, () => {
       expect(fixedManifest.unparsedKey).toBe(`foo`);
     }));
 
-    test(`test apply fix to string fields`, makeTemporaryEnv(manifest, async ({path, run, source}) => {
-      environments[`various field types`](path);
+    test(`test apply fix to string fields`, makeTemporaryEnv(manifest, config, async ({path, run, source}) => {
+      await environments[`various field types`](path);
 
       await xfs.writeFilePromise(`${path}/constraints.pro`, `
       gen_enforced_field(WorkspaceCwd, '_name', FieldValue) :- workspace_field(WorkspaceCwd, 'name', FieldValue).
@@ -98,8 +104,8 @@ describe(`Commands`, () => {
       expect(fixedManifest._name).toStrictEqual(`foo`);
     }));
 
-    test(`test apply fix to object fields`, makeTemporaryEnv(manifest, async ({path, run, source}) => {
-      environments[`various field types`](path);
+    test(`test apply fix to object fields`, makeTemporaryEnv(manifest, config, async ({path, run, source}) => {
+      await environments[`various field types`](path);
 
       await xfs.writeFilePromise(`${path}/constraints.pro`, `
       gen_enforced_field(WorkspaceCwd, '_repository', FieldValue) :- workspace_field(WorkspaceCwd, 'repository', FieldValue).
@@ -116,8 +122,8 @@ describe(`Commands`, () => {
       });
     }));
 
-    test(`test apply fix to array fields`, makeTemporaryEnv(manifest, async ({path, run, source}) => {
-      environments[`various field types`](path);
+    test(`test apply fix to array fields`, makeTemporaryEnv(manifest, config, async ({path, run, source}) => {
+      await environments[`various field types`](path);
 
       await xfs.writeFilePromise(`${path}/constraints.pro`, `
       gen_enforced_field(WorkspaceCwd, '_files', FieldValue) :- workspace_field(WorkspaceCwd, 'files', FieldValue).

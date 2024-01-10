@@ -61,6 +61,9 @@ export class Workspace {
 
     const patterns = this.manifest.workspaceDefinitions.map(({pattern}) => pattern);
 
+    if (patterns.length === 0)
+      return;
+
     const relativeCwds = await globby(patterns, {
       cwd: npath.fromPortablePath(this.cwd),
       expandDirectories: false,
@@ -72,13 +75,17 @@ export class Workspace {
     // It seems that the return value of globby isn't in any guaranteed order - not even the directory listing order
     relativeCwds.sort();
 
-    for (const relativeCwd of relativeCwds) {
+    await relativeCwds.reduce(async (previousTask, relativeCwd) => {
       const candidateCwd = ppath.resolve(this.cwd, npath.toPortablePath(relativeCwd));
 
-      if (xfs.existsSync(ppath.join(candidateCwd, `package.json` as Filename))) {
+      const exists = await xfs.existsPromise(ppath.join(candidateCwd, `package.json` as Filename));
+
+      // Ensure candidateCwds are added in order
+      await previousTask;
+      if (exists) {
         this.workspacesCwds.add(candidateCwd);
       }
-    }
+    }, Promise.resolve());
   }
 
   accepts(range: string) {
@@ -195,17 +202,21 @@ export class Workspace {
    * @returns all the child workspaces
    */
   getRecursiveWorkspaceChildren() {
-    const workspaceList: Array<Workspace> = [];
+    const workspaceSet = new Set<Workspace>([this]);
 
-    for (const childWorkspaceCwd of this.workspacesCwds) {
-      const childWorkspace = this.project.workspacesByCwd.get(childWorkspaceCwd);
+    for (const workspace of workspaceSet) {
+      for (const childWorkspaceCwd of workspace.workspacesCwds) {
+        const childWorkspace = this.project.workspacesByCwd.get(childWorkspaceCwd);
 
-      if (childWorkspace) {
-        workspaceList.push(childWorkspace, ...childWorkspace.getRecursiveWorkspaceChildren());
+        if (childWorkspace) {
+          workspaceSet.add(childWorkspace);
+        }
       }
     }
 
-    return workspaceList;
+    workspaceSet.delete(this);
+
+    return Array.from(workspaceSet);
   }
 
   async persistManifest() {

@@ -1,14 +1,23 @@
 {
   "name": "@yarnpkg/plugin-patch",
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
   "stableVersion": "3.2.2",
+=======
+  "version": "3.2.5",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "dependencies": {
     "@yarnpkg/fslib": "workspace:^",
     "@yarnpkg/libzip": "workspace:^",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
     "tslib": "^2.4.0"
+=======
+    "clipanion": "3.2.0-rc.4",
+    "tslib": "^1.13.0"
+>>>>>>> upstream/cherry-pick/next-release
   },
   "peerDependencies": {
     "@yarnpkg/cli": "workspace:^",

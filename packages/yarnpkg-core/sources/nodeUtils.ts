@@ -1,17 +1,54 @@
-import Module         from 'module';
+import {PortablePath, ppath, xfs} from '@yarnpkg/fslib';
+import Module                     from 'module';
+import os                         from 'os';
 
-import * as miscUtils from './miscUtils';
+import * as execUtils             from './execUtils';
+import * as miscUtils             from './miscUtils';
+
+const openUrlBinary = new Map([
+  [`darwin`, `open`],
+  [`linux`, `xdg-open`],
+  [`win32`, `explorer.exe`],
+]).get(process.platform);
+
+export const openUrl = typeof openUrlBinary !== `undefined`
+  ? async (url: string) => {
+    try {
+      await execUtils.execvp(openUrlBinary, [url], {cwd: ppath.cwd()});
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  : undefined;
 
 export function builtinModules(): Set<string> {
   // @ts-expect-error
   return new Set(Module.builtinModules || Object.keys(process.binding(`natives`)));
 }
 
+const LDD_PATH = `/usr/bin/ldd` as PortablePath;
+
 function getLibc() {
   // It seems that Node randomly crashes with no output under some circumstances when running a getReport() on Windows.
   // Since Windows has no libc anyway, shortcut this path.
   if (process.platform === `win32`)
     return null;
+
+  let header: Buffer | undefined;
+  try {
+    header = xfs.readFileSync(LDD_PATH);
+  } catch {}
+
+  // Since the getReport can be prohibitely expensive (it also queries DNS which, if misconfigured, can take a long time to timeout),
+  // we first check if the ldd binary is glibc or musl, and only then run the getReport() if we can't determine the libc variant.
+  if (typeof header !== `undefined`) {
+    if (header && header.includes(`GLIBC`))
+      return `glibc`;
+    if (header && header.includes(`musl`)) {
+      return `musl`;
+    }
+  }
 
   const report: any = process.report?.getReport() ?? {};
   const sharedObjects: Array<string> = report.sharedObjects ?? [];
@@ -72,4 +109,13 @@ export function getArchitectureSet() {
     cpu: [architecture.cpu],
     libc: architecture.libc ? [architecture.libc] : [],
   };
+}
+
+export function availableParallelism() {
+  // TODO: Use os.availableParallelism directly when dropping support for Node.js < 19.4.0
+  if (`availableParallelism` in os)
+    // @ts-expect-error - No types yet
+    return os.availableParallelism();
+
+  return Math.max(1, os.cpus().length);
 }

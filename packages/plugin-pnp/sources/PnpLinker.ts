@@ -10,6 +10,7 @@ import * as jsInstallUtils                                                      
 import * as pnpUtils                                                                                            from './pnpUtils';
 
 const FORCED_UNPLUG_PACKAGES = new Set([
+<<<<<<< HEAD
   // Some packages do weird stuff and MUST be unplugged. I don't like them.
   structUtils.makeIdent(null, `nan`).identHash,
   structUtils.makeIdent(null, `node-gyp`).identHash,
@@ -17,6 +18,8 @@ const FORCED_UNPLUG_PACKAGES = new Set([
   structUtils.makeIdent(null, `node-addon-api`).identHash,
   // Those ones contain native builds (*.node), and Node loads them through dlopen
   structUtils.makeIdent(null, `fsevents`).identHash,
+=======
+>>>>>>> upstream/cherry-pick/next-release
   // Contains native binaries
   structUtils.makeIdent(null, `open`).identHash,
   structUtils.makeIdent(null, `opn`).identHash,
@@ -256,6 +259,7 @@ export class PnpInstaller implements Installer {
       await xfs.removePromise(pnpPath.cjs);
       await xfs.removePromise(this.opts.project.configuration.get(`pnpDataPath`));
       await xfs.removePromise(pnpPath.esmLoader);
+      await xfs.removePromise(this.opts.project.configuration.get(`pnpUnpluggedFolder`));
 
       return undefined;
     }

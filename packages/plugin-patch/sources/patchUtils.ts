@@ -1,10 +1,19 @@
+<<<<<<< HEAD
 import {Cache, structUtils, Locator, Descriptor, Ident, Project, ThrowReport, miscUtils, FetchOptions, Package, execUtils, FetchResult} from '@yarnpkg/core';
 import {npath, PortablePath, xfs, ppath, Filename, NativePath, CwdFS}                                                                   from '@yarnpkg/fslib';
 
 import {Hooks as PatchHooks}                                                                                                            from './index';
+=======
+import {Cache, structUtils, Locator, Descriptor, Ident, Project, ThrowReport, miscUtils, FetchOptions, Package, execUtils, semverUtils, hashUtils} from '@yarnpkg/core';
+import {npath, PortablePath, xfs, ppath, Filename, NativePath, CwdFS}                                                                              from '@yarnpkg/fslib';
+
+import {CACHE_VERSION}                                                                                                                             from './constants';
+import {Hooks as PatchHooks}                                                                                                                       from './index';
+import {parsePatchFile}                                                                                                                            from './tools/parse';
+>>>>>>> upstream/cherry-pick/next-release
 
 export {applyPatchFile} from './tools/apply';
-export {parsePatchFile} from './tools/parse';
+export {parsePatchFile};
 
 const BUILTIN_REGEXP = /^builtin<([^>]+)>$/;
 
@@ -50,6 +59,7 @@ export function parseLocator(locator: Locator) {
   return {...rest, sourceLocator: sourceItem};
 }
 
+<<<<<<< HEAD
 export function unpatchDescriptor(descriptor: Descriptor) {
   const {sourceItem} = parseSpec(descriptor.range, structUtils.parseDescriptor);
   return sourceItem;
@@ -62,12 +72,17 @@ export function unpatchLocator(locator: Locator) {
 
 export function ensureUnpatchedDescriptor(descriptor: Descriptor) {
   if (!isPatchDescriptor(descriptor))
+=======
+export function ensureUnpatchedDescriptor(descriptor: Descriptor) {
+  if (!descriptor.range.startsWith(`patch:`))
+>>>>>>> upstream/cherry-pick/next-release
     return descriptor;
 
   const {sourceItem} = parseSpec(descriptor.range, structUtils.parseDescriptor);
   return sourceItem;
 }
 
+<<<<<<< HEAD
 export function ensureUnpatchedLocator(locator: Locator) {
   if (!isPatchLocator(locator))
     return locator;
@@ -76,6 +91,8 @@ export function ensureUnpatchedLocator(locator: Locator) {
   return sourceItem;
 }
 
+=======
+>>>>>>> upstream/cherry-pick/next-release
 function makeSpec<T>({parentLocator, sourceItem, patchPaths, sourceVersion, patchHash}: {parentLocator: Locator | null, sourceItem: T, patchPaths: Array<PortablePath>, sourceVersion?: string | null, patchHash?: string}, sourceStringifier: (source: T) => string) {
   const parentLocatorSpread = parentLocator !== null
     ? {locator: structUtils.stringifyLocator(parentLocator)}
@@ -101,7 +118,11 @@ function makeSpec<T>({parentLocator, sourceItem, patchPaths, sourceVersion, patc
   });
 }
 
+<<<<<<< HEAD
 export function makeDescriptor(ident: Ident, {parentLocator, sourceDescriptor, patchPaths}: Pick<ReturnType<typeof parseDescriptor>, `parentLocator` | `sourceDescriptor` | `patchPaths`>) {
+=======
+export function makeDescriptor(ident: Ident, {parentLocator, sourceDescriptor, patchPaths}: ReturnType<typeof parseDescriptor>) {
+>>>>>>> upstream/cherry-pick/next-release
   return structUtils.makeDescriptor(ident, makeSpec({parentLocator, sourceItem: sourceDescriptor, patchPaths}, structUtils.stringifyDescriptor));
 }
 
@@ -310,4 +331,34 @@ export async function diffFolders(folderA: PortablePath, folderB: PortablePath) 
     .replace(new RegExp(`(a|b)${miscUtils.escapeRegExp(`/${normalizePath(folderBN)}/`)}`, `g`), `$1/`)
     .replace(new RegExp(miscUtils.escapeRegExp(`${folderAN}/`), `g`), ``)
     .replace(new RegExp(miscUtils.escapeRegExp(`${folderBN}/`), `g`), ``);
+}
+
+export function makePatchHash(
+  patchFiles: Array<{
+    source: string | null;
+    optional: boolean;
+  }>,
+  sourceVersion: string | null,
+) {
+  const parts: Array<string> = [];
+
+  for (const {source} of patchFiles) {
+    if (source === null) continue;
+
+    const effects = parsePatchFile(source);
+
+    for (const effect of effects) {
+      const {semverExclusivity, ...effectWithoutRange} = effect;
+      if (
+        semverExclusivity !== null &&
+        sourceVersion !== null &&
+        !semverUtils.satisfiesWithPrereleases(sourceVersion, semverExclusivity)
+      )
+        continue;
+
+      parts.push(JSON.stringify(effectWithoutRange));
+    }
+  }
+
+  return hashUtils.makeHash(`${CACHE_VERSION}`, ...parts).slice(0, 6);
 }

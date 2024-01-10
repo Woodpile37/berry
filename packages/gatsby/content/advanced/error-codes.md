@@ -174,7 +174,7 @@ This error code isn't used at the moment (it used to print the number of package
 
 The checksum of a package from the cache doesn't match what the lockfile expects.
 
-This situation usually happens after you've modified the zip archives from your cache by editing the files it contains for debug purposes. Use one of the two following commands in order to bypass it:
+This situation usually happens after you've modified the zip archives from your cache by editing the files it contains for debug purposes. Use one of the three following commands in order to bypass it:
 
   - `YARN_CHECKSUM_BEHAVIOR=reset` will remove the files from the cache and download them again
   - `YARN_CHECKSUM_BEHAVIOR=update` will update the lockfile to contain the new checksum
@@ -242,7 +242,7 @@ This option is typically meant to be used on your CI and production servers, and
 
 ## YN0029 - `CROSS_DRIVE_VIRTUAL_LOCAL`
 
-This error code is deprecated.
+> **Removed:** Virtuals aren't implemented using symlinks anymore.
 
 ## YN0030 - `FETCH_FAILED`
 
@@ -369,18 +369,22 @@ Some native packages may be excluded from the install if they signal they don't 
 
 Note that all fields from `supportedArchitectures` default to `current`, which is a dynamic value depending on your local parameters. For instance, if you wish to support "my current os, whatever it is, plus linux", you can set `supportedArchitectures.os` to `["current", "linux"]`.
 
-## YN0078 - `RESOLUTION_MISMATCH`
+## YN0080 - `NETWORK_DISABLED`
 
-Starting from Yarn 4, Yarn will automatically enable the `--check-resolutions` flag on CI when it detects the current environment is a pull request. Under this mode, Yarn will check that the lockfile resolutions are consistent with what the initial range is. For example, given an initial dependency of `foo@npm:^1.0.0`:
+The `enableNetwork` flag is set to `false`, preventing any request to be made.
 
-- `foo@npm:1.2.0` is a valid resolution
-- `foo@npm:2.0.0` isn't a valid resolution, because it doesn't match the expected semver range
-- `bar@npm:1.2.0` isn't a valid resolution either, because the name doesn't match
+Note that the Yarn configuration allows [`enableNetwork`](/configuration/yarnrc#enableNetwork) to be set on a per-registry basis via `npmRegistries`.
 
-This error should never trigger under normal circumstances, as Yarn should always generate satisfying resolutions given a dependency. If you hit it nonetheless, it may be either of two things:
+## YN0081 - `NETWORK_UNSAFE_HTTP`
 
-- Yarn has a bug. It may happen! Review the mismatch to be sure and, in case you have a doubt, ping us on Discord and we'll tell you whether it's something to worry about (before doing that, take a quick look at our [repository issues](https://github.com/yarnpkg/berry/issues?q=is%3Aissue+is%3Aopen+YN0078) in case someone reported the same behaviour).
+Yarn will by default refuse to perform http (non-https) queries to protect you against accidental man-in-the-middle attacks.
 
-- Or you might have someone doing strange things on your lockfile. It might be a mistake (for example someone manually modifying a lockfile for debug but forgetting to revert the changes), or a problem (for example a malicious users trying to perform some sort of [supply chain attack](https://en.wikipedia.org/wiki/Supply_chain_attack)).
+To bypass this protection, add the specified hostname to [`unsafeHttpWhitelist`](/configuration/yarnrc#unsafeHttpWhitelist).
 
-If the use case appears legit (for example if the bug comes from Yarn), you can bypass the check on PRs by adding a `--no-check-resolutions` flag to your `yarn install` command. But be careful: this is a security feature; disabling it may have consequences.
+## YN0082 - `RESOLUTION_FAILED`
+
+Yarn failed to locate a package version that could satisfy the requested range. This usually happens with semver ranges that target versions not published yet (for example `^1.0.0` when the latest version is `0.9.0`), but can be also caused by a couple of other reasons:
+
+- The registry may not have been set properly (so Yarn is querying the public npm registry instead of your internal one)
+
+- The version may have been unpublished (although this shouldn't be possible for the public registry)

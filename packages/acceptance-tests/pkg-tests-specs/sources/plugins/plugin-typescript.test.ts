@@ -1,54 +1,18 @@
-import {Manifest}                           from '@yarnpkg/core';
-import {Filename, PortablePath, ppath, xfs} from '@yarnpkg/fslib';
-import {merge}                              from 'lodash';
-import {fs, yarn}                           from 'pkg-tests-core';
+import {Manifest}     from '@yarnpkg/core';
+import {PortablePath} from '@yarnpkg/fslib';
+import {merge}        from 'lodash';
+import {fs, yarn}     from 'pkg-tests-core';
 
 const {unpackToDirectory} = fs;
-const {readManifest} = yarn;
+const {writeConfiguration, readManifest} = yarn;
 
 describe(`Plugins`, () => {
   describe(`typescript`, () => {
     describe(`Adding types`, () => {
       test(
-        `it shouldn't be enabled by default`,
-        makeTemporaryEnv({}, async ({path, run, source}) => {
-          await run(`add`, `is-number`);
-
-          const manifestPromise = readManifest(path);
-
-          await expect(manifestPromise).resolves.toMatchObject({
-            dependencies: {
-              [`is-number`]: `^2.0.0`,
-            },
-          });
-
-          await expect(manifestPromise).not.toHaveProperty(`devDependencies`);
-        }),
-      );
-
-      test(
-        `it should automatically enable automatic @types insertion when a tsconfig is detected`,
-        makeTemporaryEnv({}, async ({path, run, source}) => {
-          await xfs.writeFilePromise(ppath.join(path, `tsconfig.json` as Filename), ``);
-
-          await run(`add`, `is-number`);
-
-          await expect(readManifest(path)).resolves.toMatchObject({
-            dependencies: {
-              [`is-number`]: `^2.0.0`,
-            },
-            devDependencies: {
-              [`@types/is-number`]: `^2`,
-            },
-          });
-        }),
-      );
-
-      test(
         `it should automatically add @types to devDependencies when package doesn't provide types`,
-        makeTemporaryEnv({}, {
-          tsEnableAutoTypes: true,
-        }, async ({path, run, source}) => {
+        makeTemporaryEnv({}, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
           await run(`add`, `is-number`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -64,9 +28,8 @@ describe(`Plugins`, () => {
 
       test(
         `it should not add @types when package provides its own types`,
-        makeTemporaryEnv({}, {
-          tsEnableAutoTypes: true,
-        }, async ({path, run, source}) => {
+        makeTemporaryEnv({}, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
           await run(`add`, `left-pad`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -79,17 +42,16 @@ describe(`Plugins`, () => {
 
       test(
         `it should automatically add @types for scoped packages`,
-        makeTemporaryEnv({}, {
-          tsEnableAutoTypes: true,
-        }, async ({path, run, source}) => {
-          await run(`add`, `@iarna/toml`);
+        makeTemporaryEnv({}, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
+          await run(`add`, `@babel/traverse@7.99.0`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
             dependencies: {
-              [`@iarna/toml`]: `^1.0.0`,
+              [`@babel/traverse`]: `7.99.0`,
             },
             devDependencies: {
-              [`@types/iarna__toml`]: `^1`,
+              [`@types/babel__traverse`]: `^7`,
             },
           });
         }),
@@ -97,9 +59,8 @@ describe(`Plugins`, () => {
 
       test(
         `it should not generate a @types dependency if @types package doesn't exist`,
-        makeTemporaryEnv({}, {
-          tsEnableAutoTypes: true,
-        }, async ({path, run, source}) => {
+        makeTemporaryEnv({}, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
           await run(`add`, `resolve`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -112,9 +73,8 @@ describe(`Plugins`, () => {
 
       test(
         `it should not add @types for transient dependencies`,
-        makeTemporaryEnv({}, {
-          tsEnableAutoTypes: true,
-        }, async ({path, run, source}) => {
+        makeTemporaryEnv({}, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
           await run(`add`, `one-fixed-dep-with-types`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -127,9 +87,8 @@ describe(`Plugins`, () => {
 
       test(
         `it should add @types with the range '^<original-major>' by default`,
-        makeTemporaryEnv({}, {
-          tsEnableAutoTypes: true,
-        }, async ({path, run, source}) => {
+        makeTemporaryEnv({}, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
           await run(`add`, `is-number@^1.0.0`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -156,9 +115,9 @@ describe(`Plugins`, () => {
               [`@types/is-number`]: `1.0.0`,
             },
           },
-        }, {
-          tsEnableAutoTypes: true,
         }, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
+
           await run(`add`, `is-number@^2.0.0`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -188,9 +147,9 @@ describe(`Plugins`, () => {
               [`@types/is-number`]: `1.0.0`,
             },
           },
-        }, {
-          tsEnableAutoTypes: true,
         }, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
+
           await run(`add`, `is-number@^2.0.0`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -217,9 +176,9 @@ describe(`Plugins`, () => {
               [`@types/is-number`]: `1.0.0`,
             },
           },
-        }, {
-          tsEnableAutoTypes: true,
         }, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
+
           await run(`add`, `is-number@^2.0.0`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -243,9 +202,9 @@ describe(`Plugins`, () => {
               [`is-number`]: `^1.0.0`,
             },
           },
-        }, {
-          tsEnableAutoTypes: true,
         }, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
+
           await run(`add`, `is-number@^1.0.0`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -277,9 +236,9 @@ describe(`Plugins`, () => {
               [`@types/is-number`]: `2.0.0`,
             },
           },
-        }, {
-          tsEnableAutoTypes: true,
         }, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
+
           await run(`add`, `is-number@^2.0.0`);
 
           await expect(readManifest(path)).resolves.toMatchObject({
@@ -306,9 +265,8 @@ describe(`Plugins`, () => {
             [type]: {
               [`@types/is-number`]: `1.0.0`,
             },
-          }), {
-            tsEnableAutoTypes: true,
-          }, async ({path, run, source}) => {
+          }), async ({path, run, source}) => {
+            await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
             await run(`remove`, `is-number`);
 
             await expect(readManifest(path)).resolves.not.toHaveProperty(`${type}.@types/is-number`);
@@ -325,9 +283,8 @@ describe(`Plugins`, () => {
           devDependencies: {
             [`@types/iarna__toml`]: `1.0.0`,
           },
-        }, {
-          tsEnableAutoTypes: true,
         }, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
           await run(`remove`, `@iarna/toml`);
 
           await expect(readManifest(path)).resolves.not.toHaveProperty(`devDependencies.@types/iarna__toml`);
@@ -346,6 +303,8 @@ describe(`Plugins`, () => {
             typings: `./published-typings.d.ts`,
           },
         }, async ({path, run, source}) => {
+          await writeConfiguration(path, {plugins: [require.resolve(`@yarnpkg/monorepo/scripts/plugin-typescript.js`)]});
+
           await run(`install`);
           await run(`pack`);
 

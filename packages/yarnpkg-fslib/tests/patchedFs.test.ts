@@ -109,6 +109,44 @@ describe(`patchedFs`, () => {
     expect(patchedFs.existsSync(renamedUrl)).toStrictEqual(false);
   });
 
+  it(`should support Buffer instances`, () => {
+    const patchedFs = extendFs(fs, new PosixFS(new NodeFS()));
+
+    const tmpdir = npath.fromPortablePath(xfs.mktempSync());
+    const tmpdirBuffer = Buffer.from(tmpdir);
+
+    const file = `${tmpdir}/file.txt`;
+    const fileBuffer = Buffer.from(file);
+
+    patchedFs.writeFileSync(fileBuffer, `Hello World`);
+
+    expect(patchedFs.readdirSync(tmpdirBuffer)).toStrictEqual(patchedFs.readdirSync(tmpdir));
+
+    expect(patchedFs.readFileSync(fileBuffer, {encoding: `utf8`})).toStrictEqual(patchedFs.readFileSync(file, {encoding: `utf8`}));
+    expect(patchedFs.statSync(fileBuffer)).toStrictEqual(patchedFs.statSync(file));
+
+    const copyBuffer = Buffer.from(`${tmpdir}/copy.txt`);
+    const renamedBuffer = Buffer.from(`${tmpdir}/renamed.txt`);
+
+    patchedFs.copyFileSync(fileBuffer, copyBuffer);
+    patchedFs.renameSync(copyBuffer, renamedBuffer);
+    patchedFs.unlinkSync(renamedBuffer);
+
+    expect(patchedFs.existsSync(renamedBuffer)).toStrictEqual(false);
+  });
+
+  it(`should throw on non-utf8 Buffer instances`, () => {
+    const patchedFs = extendFs(fs, new PosixFS(new NodeFS()));
+
+    const tmpdir = Buffer.from(npath.fromPortablePath(xfs.mktempSync()));
+    const sep = Buffer.from(npath.sep);
+    const basename = Buffer.from([0xca, 0xc5, 0x0e]);
+
+    const fileBuffer = Buffer.concat([tmpdir, sep, basename]);
+
+    expect(() => patchedFs.writeFileSync(fileBuffer, `Hello World`)).toThrow(`Non-utf8 buffers are not supported at the moment`);
+  });
+
   it(`should support fstat`, async () => {
     const patchedFs = extendFs(fs, new PosixFS(new ZipOpenFS({libzip: await getLibzipPromise(), baseFs: new NodeFS()})));
 
@@ -181,7 +219,7 @@ describe(`patchedFs`, () => {
       const chunks: Array<Buffer> = [];
 
       readStream.on(`data`, chunk => {
-        chunks.push(chunk);
+        chunks.push(chunk as Buffer);
       });
 
       readStream.on(`close`, () => {
@@ -227,7 +265,6 @@ describe(`patchedFs`, () => {
 
     const buffer = Buffer.alloc(128);
     try {
-      // @ts-expect-error - Node types are out of date
       const bytesRead = patchedFs.readSync(fd, buffer);
 
       expect(bytesRead).toEqual(buffer.byteLength);
@@ -244,7 +281,6 @@ describe(`patchedFs`, () => {
     const buffer = Buffer.alloc(42);
     try {
       const bytesRead = await new Promise<number>((resolve, reject) => {
-        // @ts-expect-error - Node types are out of date
         patchedFs.read(fd, {buffer}, (err, bytesRead, buffer) => {
           if (err) {
             reject(err);
@@ -327,7 +363,10 @@ describe(`patchedFs`, () => {
       {
         const fd = await patchedFs.promises.open(filepath, `r`);
 
+<<<<<<< HEAD
         // @ts-expect-error - The implementation allows no arguments
+=======
+>>>>>>> upstream/cherry-pick/next-release
         const {buffer, bytesRead} = await fd.read();
         expect(bytesRead).toEqual(3);
         expect(buffer.subarray(0, 3)).toEqual(Buffer.from(`foo`));
@@ -519,6 +558,27 @@ describe(`patchedFs`, () => {
     });
   });
 
+<<<<<<< HEAD
+=======
+  it(`should support FileHandle.readLines`, async () => {
+    const patchedFs = extendFs(fs, new PosixFS(new NodeFS()));
+
+    await xfs.mktempPromise(async dir => {
+      const filepath = npath.join(npath.fromPortablePath(dir), `foo.txt`);
+      await patchedFs.promises.writeFile(filepath, `1\n\n2\n`);
+
+      const fd = await patchedFs.promises.open(filepath, `r`);
+
+      const lines: Array<string> = [];
+      // @ts-expect-error - Types are out of date
+      for await (const line of fd.readLines())
+        lines.push(line);
+
+      expect(lines).toStrictEqual([`1`, ``, `2`]);
+    });
+  });
+
+>>>>>>> upstream/cherry-pick/next-release
   ifNotWin32It(`should support FileHandle.chmod`, async () => {
     const patchedFs = extendFs(fs, new PosixFS(new NodeFS()));
 

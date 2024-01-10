@@ -42,6 +42,13 @@ export class LockfileResolver implements Resolver {
   }
 
   async getCandidates(descriptor: Descriptor, dependencies: unknown, opts: ResolveOptions) {
+<<<<<<< HEAD
+=======
+    const originalPkg = opts.project.originalPackages.get(structUtils.convertDescriptorToLocator(descriptor).locatorHash);
+    if (originalPkg)
+      return [originalPkg];
+
+>>>>>>> upstream/cherry-pick/next-release
     const resolution = opts.project.storedResolutions.get(descriptor.descriptorHash);
     if (resolution) {
       const resolvedPkg = opts.project.originalPackages.get(resolution);
@@ -50,11 +57,19 @@ export class LockfileResolver implements Resolver {
       }
     }
 
+<<<<<<< HEAD
     const originalPkg = opts.project.originalPackages.get(structUtils.convertDescriptorToLocator(descriptor).locatorHash);
     if (originalPkg)
       return [originalPkg];
 
     throw new Error(`Resolution expected from the lockfile data`);
+=======
+    const resolvedPkg = opts.project.originalPackages.get(resolution);
+    if (!resolvedPkg)
+      throw new Error(`Expected the resolution to have been successful - package not found`);
+
+    return [resolvedPkg];
+>>>>>>> upstream/cherry-pick/next-release
   }
 
   async getSatisfying(descriptor: Descriptor, dependencies: Record<string, Package>, locators: Array<Locator>, opts: ResolveOptions) {

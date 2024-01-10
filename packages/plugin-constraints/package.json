@@ -1,7 +1,11 @@
 {
   "name": "@yarnpkg/plugin-constraints",
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
   "stableVersion": "3.1.2",
+=======
+  "version": "3.1.4",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
@@ -11,7 +15,11 @@
   "main": "./sources/index.ts",
   "dependencies": {
     "@yarnpkg/fslib": "workspace:^",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
+=======
+    "clipanion": "3.2.0-rc.4",
+>>>>>>> upstream/cherry-pick/next-release
     "lodash": "^4.17.15",
     "tau-prolog": "^0.2.66",
     "tslib": "^2.4.0"

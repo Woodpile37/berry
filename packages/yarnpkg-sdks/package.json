@@ -1,6 +1,10 @@
 {
   "name": "@yarnpkg/sdks",
+<<<<<<< HEAD
   "version": "3.0.0-rc.14",
+=======
+  "version": "2.7.2",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "bin": "./sources/boot-cli-dev.js",
@@ -11,7 +15,11 @@
     "@yarnpkg/fslib": "workspace:^",
     "@yarnpkg/parsers": "workspace:^",
     "chalk": "^3.0.0",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
+=======
+    "clipanion": "3.2.0-rc.4",
+>>>>>>> upstream/cherry-pick/next-release
     "comment-json": "^2.2.0",
     "lodash": "^4.17.15",
     "tslib": "^2.4.0"

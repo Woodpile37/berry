@@ -31,6 +31,12 @@ const isPublicRepository = GITHUB_ACTIONS && process.env.GITHUB_EVENT_PATH
   : false;
 
 const IGNORED_ENV_VARIABLES = new Set([
+  // Used by our test environment
+  `isTestEnv`,
+  `injectNpmUser`,
+  `injectNpmPassword`,
+  `injectNpm2FaToken`,
+
   // "binFolder" is the magic location where the parent process stored the
   // current binaries; not an actual configuration settings
   `binFolder`,
@@ -59,6 +65,9 @@ const IGNORED_ENV_VARIABLES = new Set([
   // https://hadoop.apache.org/docs/r0.23.11/hadoop-project-dist/hadoop-common/SingleCluster.html
   `home`,
   `confDir`,
+
+  // "YARN_REGISTRY", read by yarn 1.x, prevents yarn 2+ installations if set
+  `registry`,
 ]);
 
 export const TAG_REGEXP = /^(?!v)[a-z0-9._-]+$/i;
@@ -87,7 +96,13 @@ export type SupportedArchitectures = {
   libc: Array<string> | null;
 };
 
+/**
+ * @deprecated Use {@link formatUtils.Type}
+ */
 export type FormatType = formatUtils.Type;
+/**
+ * @deprecated Use {@link formatUtils.Type}
+ */
 export const FormatType = formatUtils.Type;
 
 export type BaseSettingsDefinition<T extends SettingsType = SettingsType> = {
@@ -693,7 +708,7 @@ function parseSingleValue(configuration: Configuration, path: string, value: unk
       return miscUtils.parseBoolean(value);
 
     if (typeof value !== `string`)
-      throw new Error(`Expected value (${value}) to be a string`);
+      throw new Error(`Expected configuration setting "${path}" to be a string, got ${typeof value}`);
 
     const valueWithReplacedVariables = miscUtils.replaceEnvVariables(value, {
       env: process.env,

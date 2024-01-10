@@ -12,7 +12,7 @@ import v8                                                               from 'v8
 import zlib                                                             from 'zlib';
 
 import {Cache, CacheOptions}                                            from './Cache';
-import {Configuration, FormatType}                                      from './Configuration';
+import {Configuration}                                                  from './Configuration';
 import {Fetcher, FetchOptions}                                          from './Fetcher';
 import {Installer, BuildDirective, BuildType, InstallStatus}            from './Installer';
 import {LegacyMigrationResolver}                                        from './LegacyMigrationResolver';
@@ -379,42 +379,41 @@ export class Project {
     this.workspacesByCwd = new Map();
     this.workspacesByIdent = new Map();
 
-    let workspaceCwds = [this.cwd];
-    while (workspaceCwds.length > 0) {
-      const passCwds = workspaceCwds;
-      workspaceCwds = [];
+    const pathsChecked = new Set<PortablePath>();
+    const limitSetup = pLimit(4);
 
-      for (const workspaceCwd of passCwds) {
-        if (this.workspacesByCwd.has(workspaceCwd))
-          continue;
+    const loadWorkspaceReducer = async (previousTask: Promise<void>, workspaceCwd: PortablePath): Promise<void> => {
+      if (pathsChecked.has(workspaceCwd))
+        return previousTask;
 
-        const workspace = await this.addWorkspace(workspaceCwd);
+      pathsChecked.add(workspaceCwd);
 
+      const workspace = new Workspace(workspaceCwd, {project: this});
+      await limitSetup(() => workspace.setup());
+
+      const nextTask = previousTask.then(() => {
+        this.addWorkspace(workspace);
         const workspacePkg = this.storedPackages.get(workspace.anchoredLocator.locatorHash);
-        if (workspacePkg)
+        if (workspacePkg) {
           workspace.dependencies = workspacePkg.dependencies;
-
-        for (const workspaceCwd of workspace.workspacesCwds) {
-          workspaceCwds.push(workspaceCwd);
         }
-      }
-    }
+      });
+
+      return Array.from(workspace.workspacesCwds).reduce(loadWorkspaceReducer, nextTask);
+    };
+
+    await loadWorkspaceReducer(Promise.resolve(), this.cwd);
   }
 
-  private async addWorkspace(workspaceCwd: PortablePath) {
-    const workspace = new Workspace(workspaceCwd, {project: this});
-    await workspace.setup();
-
+  private addWorkspace(workspace: Workspace) {
     const dup = this.workspacesByIdent.get(workspace.locator.identHash);
     if (typeof dup !== `undefined`)
-      throw new Error(`Duplicate workspace name ${structUtils.prettyIdent(this.configuration, workspace.locator)}: ${npath.fromPortablePath(workspaceCwd)} conflicts with ${npath.fromPortablePath(dup.cwd)}`);
+      throw new Error(`Duplicate workspace name ${structUtils.prettyIdent(this.configuration, workspace.locator)}: ${npath.fromPortablePath(workspace.cwd)} conflicts with ${npath.fromPortablePath(dup.cwd)}`);
 
     this.workspaces.push(workspace);
 
-    this.workspacesByCwd.set(workspaceCwd, workspace);
+    this.workspacesByCwd.set(workspace.cwd, workspace);
     this.workspacesByIdent.set(workspace.locator.identHash, workspace);
-
-    return workspace;
   }
 
   get topLevelWorkspace() {
@@ -549,39 +548,39 @@ export class Project {
     }
   }
 
+  private deleteDescriptor(descriptorHash: DescriptorHash) {
+    this.storedResolutions.delete(descriptorHash);
+    this.storedDescriptors.delete(descriptorHash);
+  }
+
+  private deleteLocator(locatorHash: LocatorHash) {
+    this.originalPackages.delete(locatorHash);
+    this.storedPackages.delete(locatorHash);
+    this.accessibleLocators.delete(locatorHash);
+  }
+
   forgetResolution(descriptor: Descriptor): void;
   forgetResolution(locator: Locator): void;
   forgetResolution(dataStructure: Descriptor | Locator): void {
-    const deleteDescriptor = (descriptorHash: DescriptorHash) => {
-      this.storedResolutions.delete(descriptorHash);
-      this.storedDescriptors.delete(descriptorHash);
-    };
-
-    const deleteLocator = (locatorHash: LocatorHash) => {
-      this.originalPackages.delete(locatorHash);
-      this.storedPackages.delete(locatorHash);
-      this.accessibleLocators.delete(locatorHash);
-    };
-
     if (`descriptorHash` in dataStructure) {
       const locatorHash = this.storedResolutions.get(dataStructure.descriptorHash);
 
-      deleteDescriptor(dataStructure.descriptorHash);
+      this.deleteDescriptor(dataStructure.descriptorHash);
 
       // We delete unused locators
       const remainingResolutions = new Set(this.storedResolutions.values());
       if (typeof locatorHash !== `undefined` && !remainingResolutions.has(locatorHash)) {
-        deleteLocator(locatorHash);
+        this.deleteLocator(locatorHash);
       }
     }
 
     if (`locatorHash` in dataStructure) {
-      deleteLocator(dataStructure.locatorHash);
+      this.deleteLocator(dataStructure.locatorHash);
 
       // We delete all of the descriptors that have been resolved to the locator
       for (const [descriptorHash, locatorHash] of this.storedResolutions) {
         if (locatorHash === dataStructure.locatorHash) {
-          deleteDescriptor(descriptorHash);
+          this.deleteDescriptor(descriptorHash);
         }
       }
     }
@@ -589,6 +588,16 @@ export class Project {
 
   forgetTransientResolutions() {
     const resolver = this.configuration.makeResolver();
+
+    const reverseLookup = new Map<LocatorHash, Set<DescriptorHash>>();
+
+    for (const [descriptorHash, locatorHash] of this.storedResolutions.entries()) {
+      let descriptorHashes = reverseLookup.get(locatorHash);
+      if (!descriptorHashes)
+        reverseLookup.set(locatorHash, descriptorHashes = new Set());
+
+      descriptorHashes.add(descriptorHash);
+    }
 
     for (const pkg of this.originalPackages.values()) {
       let shouldPersistResolution: boolean;
@@ -599,7 +608,15 @@ export class Project {
       }
 
       if (!shouldPersistResolution) {
-        this.forgetResolution(pkg);
+        this.deleteLocator(pkg.locatorHash);
+
+        const descriptors = reverseLookup.get(pkg.locatorHash);
+        if (descriptors) {
+          reverseLookup.delete(pkg.locatorHash);
+          for (const descriptorHash of descriptors) {
+            this.deleteDescriptor(descriptorHash);
+          }
+        }
       }
     }
   }
@@ -831,7 +848,7 @@ export class Project {
 
         const finalResolution = candidateResolutions[0];
         if (typeof finalResolution === `undefined`)
-          throw new Error(`${structUtils.prettyDescriptor(this.configuration, descriptor)}: No candidates found`);
+          throw new ReportError(MessageName.RESOLUTION_FAILED, `${structUtils.prettyDescriptor(this.configuration, descriptor)}: No candidates found`);
 
         if (opts.checkResolutions) {
           const {locators} = await noLockfileResolver.getSatisfying(descriptor, resolvedDependencies, [finalResolution], {...resolveOptions, resolver: noLockfileResolver});
@@ -924,7 +941,7 @@ export class Project {
           }-${
             process.arch
           }) is supported by this package, but is missing from the ${
-            formatUtils.pretty(this.configuration, `supportedArchitectures`, FormatType.SETTING)
+            formatUtils.pretty(this.configuration, `supportedArchitectures`, formatUtils.Type.SETTING)
           } setting`);
         }
 
@@ -986,7 +1003,7 @@ export class Project {
     let firstError = false;
 
     const progress = Report.progressViaCounter(locatorHashes.length);
-    report.reportProgress(progress);
+    await report.reportProgress(progress);
 
     const limit = pLimit(FETCHER_CONCURRENCY);
 
@@ -1343,33 +1360,55 @@ export class Project {
 
     let isInstallStatePersisted = false;
 
+    const isLocatorBuildable = (locator: Locator) => {
+      const hashesToCheck = new Set([locator.locatorHash]);
+
+      for (const locatorHash of hashesToCheck) {
+        const pkg = this.storedPackages.get(locatorHash);
+        if (!pkg)
+          throw new Error(`Assertion failed: The package should have been registered`);
+
+        for (const dependency of pkg.dependencies.values()) {
+          const resolution = this.storedResolutions.get(dependency.descriptorHash);
+          if (!resolution)
+            throw new Error(`Assertion failed: The resolution (${structUtils.prettyDescriptor(this.configuration, dependency)}) should have been registered`);
+
+          if (resolution !== locator.locatorHash && buildablePackages.has(resolution))
+            return false;
+
+          // Virtual workspaces don't have build scripts but the original might so we need to check it.
+          const dependencyPkg = this.storedPackages.get(resolution);
+          if (!dependencyPkg)
+            throw new Error(`Assertion failed: The package should have been registered`);
+
+          const workspace = this.tryWorkspaceByLocator(dependencyPkg);
+          if (workspace) {
+            if (workspace.anchoredLocator.locatorHash !== locator.locatorHash && buildablePackages.has(workspace.anchoredLocator.locatorHash))
+              return false;
+
+            hashesToCheck.add(workspace.anchoredLocator.locatorHash);
+          }
+
+          hashesToCheck.add(resolution);
+        }
+      }
+
+      return true;
+    };
+
     while (buildablePackages.size > 0) {
       const savedSize = buildablePackages.size;
-      const buildPromises = [];
+      const buildPromises: Array<Promise<unknown>> = [];
 
       for (const locatorHash of buildablePackages) {
         const pkg = this.storedPackages.get(locatorHash);
         if (!pkg)
           throw new Error(`Assertion failed: The package should have been registered`);
 
-        let isBuildable = true;
-        for (const dependency of pkg.dependencies.values()) {
-          const resolution = this.storedResolutions.get(dependency.descriptorHash);
-          if (!resolution)
-            throw new Error(`Assertion failed: The resolution (${structUtils.prettyDescriptor(this.configuration, dependency)}) should have been registered`);
-
-          if (buildablePackages.has(resolution)) {
-            isBuildable = false;
-            break;
-          }
-        }
-
         // Wait until all dependencies of the current package have been built
         // before trying to build it (since it might need them to build itself)
-        if (!isBuildable)
+        if (!isLocatorBuildable(pkg))
           continue;
-
-        buildablePackages.delete(locatorHash);
 
         const buildInfo = packageBuildDirectives.get(pkg.locatorHash);
         if (!buildInfo)
@@ -1380,6 +1419,7 @@ export class Project {
         // No need to rebuild the package if its hash didn't change
         if (this.storedBuildState.get(pkg.locatorHash) === buildHash) {
           nextBState.set(pkg.locatorHash, buildHash);
+          buildablePackages.delete(locatorHash);
           continue;
         }
 
@@ -1397,76 +1437,84 @@ export class Project {
         else
           report.reportInfo(MessageName.MUST_BUILD, `${structUtils.prettyLocator(this.configuration, pkg)} must be built because it never has been before or the last one failed`);
 
-        for (const location of buildInfo.buildLocations) {
+        const pkgBuilds = buildInfo.buildLocations.map(async location => {
           if (!ppath.isAbsolute(location))
             throw new Error(`Assertion failed: Expected the build location to be absolute (not ${location})`);
 
-          buildPromises.push((async () => {
-            for (const [buildType, scriptName] of buildInfo.directives) {
-              let header = `# This file contains the result of Yarn building a package (${structUtils.stringifyLocator(pkg)})\n`;
-              switch (buildType) {
-                case BuildType.SCRIPT: {
-                  header += `# Script name: ${scriptName}\n`;
-                } break;
-                case BuildType.SHELLCODE: {
-                  header += `# Script code: ${scriptName}\n`;
-                } break;
-              }
+          for (const [buildType, scriptName] of buildInfo.directives) {
+            let header = `# This file contains the result of Yarn building a package (${structUtils.stringifyLocator(pkg)})\n`;
+            switch (buildType) {
+              case BuildType.SCRIPT: {
+                header += `# Script name: ${scriptName}\n`;
+              } break;
+              case BuildType.SHELLCODE: {
+                header += `# Script code: ${scriptName}\n`;
+              } break;
+            }
 
-              const stdin = null;
+            const stdin = null;
 
-              const wasBuildSuccessful = await xfs.mktempPromise(async logDir => {
-                const logFile = ppath.join(logDir, `build.log` as PortablePath);
+            const wasBuildSuccessful = await xfs.mktempPromise(async logDir => {
+              const logFile = ppath.join(logDir, `build.log` as PortablePath);
 
-                const {stdout, stderr} = this.configuration.getSubprocessStreams(logFile, {
-                  header,
-                  prefix: structUtils.prettyLocator(this.configuration, pkg),
-                  report,
-                });
-
-                let exitCode;
-                try {
-                  switch (buildType) {
-                    case BuildType.SCRIPT: {
-                      exitCode = await scriptUtils.executePackageScript(pkg, scriptName, [], {cwd: location, project: this, stdin, stdout, stderr});
-                    } break;
-                    case BuildType.SHELLCODE: {
-                      exitCode = await scriptUtils.executePackageShellcode(pkg, scriptName, [], {cwd: location, project: this, stdin, stdout, stderr});
-                    } break;
-                  }
-                } catch (error) {
-                  stderr.write(error.stack);
-                  exitCode = 1;
-                }
-
-                stdout.end();
-                stderr.end();
-
-                if (exitCode === 0) {
-                  nextBState.set(pkg.locatorHash, buildHash);
-                  return true;
-                }
-
-                xfs.detachTemp(logDir);
-
-                const buildMessage = `${structUtils.prettyLocator(this.configuration, pkg)} couldn't be built successfully (exit code ${formatUtils.pretty(this.configuration, exitCode, formatUtils.Type.NUMBER)}, logs can be found here: ${formatUtils.pretty(this.configuration, logFile, formatUtils.Type.PATH)})`;
-
-                if (this.optionalBuilds.has(pkg.locatorHash)) {
-                  report.reportInfo(MessageName.BUILD_FAILED, buildMessage);
-                  nextBState.set(pkg.locatorHash, buildHash);
-                  return true;
-                } else {
-                  report.reportError(MessageName.BUILD_FAILED, buildMessage);
-                  return false;
-                }
+              const {stdout, stderr} = this.configuration.getSubprocessStreams(logFile, {
+                header,
+                prefix: structUtils.prettyLocator(this.configuration, pkg),
+                report,
               });
 
-              if (!wasBuildSuccessful) {
-                return;
+              let exitCode;
+              try {
+                switch (buildType) {
+                  case BuildType.SCRIPT: {
+                    exitCode = await scriptUtils.executePackageScript(pkg, scriptName, [], {cwd: location, project: this, stdin, stdout, stderr});
+                  } break;
+                  case BuildType.SHELLCODE: {
+                    exitCode = await scriptUtils.executePackageShellcode(pkg, scriptName, [], {cwd: location, project: this, stdin, stdout, stderr});
+                  } break;
+                }
+              } catch (error) {
+                stderr.write(error.stack);
+                exitCode = 1;
               }
+
+              stdout.end();
+              stderr.end();
+
+              if (exitCode === 0)
+                return true;
+
+              xfs.detachTemp(logDir);
+
+              const buildMessage = `${structUtils.prettyLocator(this.configuration, pkg)} couldn't be built successfully (exit code ${formatUtils.pretty(this.configuration, exitCode, formatUtils.Type.NUMBER)}, logs can be found here: ${formatUtils.pretty(this.configuration, logFile, formatUtils.Type.PATH)})`;
+
+              if (this.optionalBuilds.has(pkg.locatorHash)) {
+                report.reportInfo(MessageName.BUILD_FAILED, buildMessage);
+                return true;
+              } else {
+                report.reportError(MessageName.BUILD_FAILED, buildMessage);
+                return false;
+              }
+            });
+
+            if (!wasBuildSuccessful) {
+              return false;
             }
-          })());
-        }
+          }
+
+          return true;
+        });
+
+        buildPromises.push(
+          ...pkgBuilds,
+          Promise.allSettled(pkgBuilds).then(results => {
+            buildablePackages.delete(locatorHash);
+
+            if (results.every(result => result.status === `fulfilled` && result.value === true)) {
+              nextBState.set(pkg.locatorHash, buildHash);
+            }
+          }),
+        );
       }
 
       await miscUtils.allSettledSafe(buildPromises);
@@ -1829,11 +1877,13 @@ export class Project {
   }
 
   async persist() {
-    await this.persistLockfile();
-
-    for (const workspace of this.workspacesByCwd.values()) {
-      await workspace.persistManifest();
-    }
+    const limit = pLimit(4);
+    await Promise.all([
+      this.persistLockfile(),
+      ...this.workspaces.map(workspace => {
+        return limit(() => workspace.persistManifest());
+      }),
+    ]);
   }
 
   async cacheCleanup({cache, report}: InstallOptions)  {
@@ -1911,8 +1961,6 @@ function applyVirtualResolutionMutations({
   volatileDescriptors = new Set(),
 
   report,
-
-  tolerateMissingPackages = false,
 }: {
   project: Project;
 
@@ -1926,8 +1974,6 @@ function applyVirtualResolutionMutations({
   volatileDescriptors?: Set<DescriptorHash>;
 
   report: Report | null;
-
-  tolerateMissingPackages?: boolean;
 }) {
   const virtualStack = new Map<LocatorHash, number>();
   const resolutionStack: Array<Locator> = [];
@@ -1952,15 +1998,10 @@ function applyVirtualResolutionMutations({
   // may be overriden during the virtual package resolution - cf Dragon Test #5
   const originalWorkspaceDefinitions = new Map<LocatorHash, Package | null>(project.workspaces.map(workspace => {
     const locatorHash = workspace.anchoredLocator.locatorHash;
-    const pkg = allPackages.get(locatorHash);
 
-    if (typeof pkg === `undefined`) {
-      if (tolerateMissingPackages) {
-        return [locatorHash, null];
-      } else {
-        throw new Error(`Assertion failed: The workspace should have an associated package`);
-      }
-    }
+    const pkg = allPackages.get(locatorHash);
+    if (typeof pkg === `undefined`)
+      throw new Error(`Assertion failed: The workspace should have an associated package`);
 
     return [locatorHash, structUtils.copyPackage(pkg)];
   }));
@@ -2014,13 +2055,8 @@ function applyVirtualResolutionMutations({
       optionalBuilds.delete(parentLocator.locatorHash);
 
     const parentPackage = allPackages.get(parentLocator.locatorHash);
-    if (!parentPackage) {
-      if (tolerateMissingPackages) {
-        return;
-      } else {
-        throw new Error(`Assertion failed: The package (${structUtils.prettyLocator(project.configuration, parentLocator)}) should have been registered`);
-      }
-    }
+    if (!parentPackage)
+      throw new Error(`Assertion failed: The package (${structUtils.prettyLocator(project.configuration, parentLocator)}) should have been registered`);
 
     const newVirtualInstances: Array<[Locator, Descriptor, Package]> = [];
 
@@ -2062,18 +2098,13 @@ function applyVirtualResolutionMutations({
       }
 
       const resolution = allResolutions.get(descriptor.descriptorHash);
-      if (!resolution) {
+      if (!resolution)
         // Note that we can't use `getPackageFromDescriptor` (defined below,
         // because when doing the initial tree building right after loading the
         // project it's possible that we get some entries that haven't been
         // registered into the lockfile yet - for example when the user has
         // manually changed the package.json dependencies)
-        if (tolerateMissingPackages) {
-          continue;
-        } else {
-          throw new Error(`Assertion failed: The resolution (${structUtils.prettyDescriptor(project.configuration, descriptor)}) should have been registered`);
-        }
-      }
+        throw new Error(`Assertion failed: The resolution (${structUtils.prettyDescriptor(project.configuration, descriptor)}) should have been registered`);
 
       const pkg = originalWorkspaceDefinitions.get(resolution) || allPackages.get(resolution);
       if (!pkg)

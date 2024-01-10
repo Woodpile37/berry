@@ -169,7 +169,13 @@ export default class AuditCommand extends BaseCommand {
       for (const advisory of Object.keys(result.advisories)) {
         if (micromatch.isMatch(advisory, ignoredAdvisories)) {
           const entry = result.advisories[advisory];
+<<<<<<< HEAD
           result.metadata.vulnerabilities[entry.severity] -= 1;
+=======
+          let affectedPathsCount = 0;
+          entry.findings.forEach(finding => affectedPathsCount += finding.paths.length);
+          result.metadata.vulnerabilities[entry.severity] -= affectedPathsCount;
+>>>>>>> upstream/cherry-pick/next-release
           delete result.advisories[advisory];
         }
       }

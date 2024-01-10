@@ -8,56 +8,56 @@ Yarn now accepts sponsorships! Please give a look at our [OpenCollective](https:
 
 ## Master
 
-### **Major Changes**
-
-- The `yarn set version` command will now skip generating the `yarnPath` configuration on new projects if it detects you're using [Corepack](https://nodejs.org/api/corepack.html)
-- All official Yarn plugins are now included by default in the bundle we provide. You no longer need to run `yarn plugin import` for *official* plugins (you still need to do it for third-party plugins, of course).
-  - This doesn't change anything to the plugin API we provide, which will keep being maintained (Yarn still has a modular architecture and uses the exact same APIs as contrib plugins; all that changes is how we distribute our own features).
-- Some legacy layers have been sunset:
-  - Plugins cannot access the Clipanion 2 APIs anymore (upgrade to [Clipanion 3](https://github.com/arcanis/clipanion))
-  - Plugins cannot access the internal copy of Yup anymore (use [Typanion](https://github.com/arcanis/typanion) instead)
-- The network settings configuration option has been renamed from `caFilePath` to `httpsCaFilePath`.
-- Set `nmMode` to `hardlinks-local` by default.
-- `yarn workspaces foreach` now automatically enables the `-v,--verbose` flag in interactive terminal environments.
-- `yarn npm audit` no longer takes into account publish registries. Use [`npmAuditRegistry`](https://yarnpkg.com/configuration/yarnrc#npmAuditRegistry) instead.
-- The `--assume-fresh-project` flag of `yarn init` has been removed. Should only affect people initializing Yarn 4+ projects using a Yarn 2 binary.
-
-### **API Changes**
-
-The following changes only affect people writing Yarn plugins:
-
-- The `dependencies` field sent returned by `Resolver#resolve` must now be the result of a `Configuration#normalizeDependencyMap` call. This change is prompted by a refactoring of how default protocols (ie `npm:`) are injected into descriptors. The previous implementation caused various descriptors to never be normalized, which made it difficult to know what were the descriptors each function should expect.
-
-  - Similarly, the descriptors returned by `Resolve#getResolutionDependencies` are now expected to be the result of `Configuration#normalizeDependency` calls.
-
-  - Note that this only applies to the `dependencies` field; the `peerDependencies` field is unchanged, as it must only contains semver ranges without any protocol (with an exception for `workspace:`, but that's not relevant here).
-
-- The `Resolve#getResolutionDependencies` function must now return an object of arbitrary string keys and descriptor values (instead of a map with `DescriptorHash` keys). Those descriptors will be resolved and assigned to the same keys as the initial object. This change allows resolvers to wrap resolution dependencies from other resolvers, which wasn't possible before since it'd have caused the key to change.
-
-- The `generateLoader` function in `@yarnpkg/pnp` no longer generates the `$$SETUP_STATE` function, it now needs to be present in the `loader` passed to the function.
-
-- The `getCustomDataKey` function in `Installer` from `@yarnpkg/core` has been moved to `Linker`.
-
-- `renderForm`'s `options` argument is now required to enforce that custom streams are always specified.
-
-- `npmConfigUtils.getAuditRegistry` no longer takes a `Manifest` as its first argument.
-
-- The `FetchOptions.skipIntegrityCheck` option has been removed. Use `FetchOptions.cacheOptions.skipIntegrityCheck` instead.
-
-- `MapConfigurationValue` has been removed. Use `miscUtils.ToMapValue` instead.
-
-- `Manifest.isManifestFieldCompatible` and `Manifest.prototype.isCompatibleWith{OS,CPU}` have been removed. Use `Manifest.prototype.getConditions` and `structUtils.isPackageCompatible` instead.
-
-- `versionUtils.{fetchBase,fetchRoot,fetchChangedFiles}` have been moved from `@yarnpkg/plugin-version` to `@yarnpkg/plugin-git`. Use `gitUtils.{fetchBase,fetchRoot,fetchChangedFiles}` instead.
-
-### Installs
-
-- The `pnpm` linker avoids creating symlinks that lead to loops on the file system, by moving them higher up in the directory structure.
+## 3.4.0
 
 ### Bugfixes
 
-- `yarn dlx` will no longer report false-positive `UNUSED_PACKAGE_EXTENSION` warnings
+- `ZipFS.prototype.getBufferAndClose` will not error on empty archives resulting from an unlink after write.
+
+## 3.3.1
+
+### Installs
+
+- The `pnpm` linker no longer reports duplicate "incompatible virtual" warnings.
+
+### Compatibility
+
+- Updates the PnP compatibility layer for TypeScript v4.9.4.
+- The patched filesystem now supports `FileHandle.readLines`.
+- PnP now reports missing files when in watch mode.
+
+## 3.3.0
+
+### Installs
+
+- The node-modules linker avoids creation of circular symlinks
+- The node-modules linker no longer creates duplicate copies inside of aliased packages
+- The node-modules linker locates binaries correctly when the same version of the package is duplicated inside root workspace and another workspace
+- Improved performance for `hardlinks-global` `node-modules` linker mode by 1.5x
+
+### Compatibility
+
+- Updates the PnP compatibility layer for TypeScript v4.9.2-rc.
+
+## 3.2.4
+
+### Compatibility
+
+- The patched filesystem now supports `fchown`.
+- PnP now handles private import mappings.
+- Updates the PnP compatibility layer for TypeScript v4.8.4 and v4.9.1-beta.
+- PnP now reports loaded modules when in watch mode.
+
+## 3.2.3
+
+### Bugfixes
+
 - When Corepack is enabled Yarn will now use the current CLI to prepare external Yarn classic projects, matching the behaviour of when Corepack is disabled.
+
+### Compatibility
+
+- Updates the PnP compatibility layer for TypeScript 4.8.1-rc
+- The ESM loader now supports unflagged JSON modules.
 
 ## 3.2.2
 
@@ -73,7 +73,6 @@ The following changes only affect people writing Yarn plugins:
 ## 3.2.1
 
 ### Installs
-
 - The pnpm linker no longer tries to remove `node_modules` directory, when `node-modules` linker is active
 - The node-modules linker does not fail anymore if portal dependency points to an external project with multiple interdependent workspaces
 - The node-modules linker has received various improvements:
@@ -85,6 +84,8 @@ The following changes only affect people writing Yarn plugins:
 ### Bugfixes
 
 - The PnP ESM loader is now able to handle symlinked extensionless entrypoints.
+
+### Installs
 
 ## 3.2.0
 

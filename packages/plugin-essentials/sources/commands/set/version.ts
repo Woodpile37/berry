@@ -1,9 +1,18 @@
+<<<<<<< HEAD
 import {BaseCommand}                                                                                      from '@yarnpkg/cli';
 import {Configuration, StreamReport, MessageName, Report, Manifest, FormatType, YarnVersion, ReportError} from '@yarnpkg/core';
 import {execUtils, formatUtils, httpUtils, miscUtils, semverUtils}                                        from '@yarnpkg/core';
 import {Filename, PortablePath, ppath, xfs, npath}                                                        from '@yarnpkg/fslib';
 import {Command, Option, Usage, UsageError}                                                               from 'clipanion';
 import semver                                                                                             from 'semver';
+=======
+import {BaseCommand}                                                             from '@yarnpkg/cli';
+import {Configuration, StreamReport, MessageName, Report, Manifest, YarnVersion} from '@yarnpkg/core';
+import {execUtils, formatUtils, httpUtils, miscUtils, semverUtils}               from '@yarnpkg/core';
+import {Filename, PortablePath, ppath, xfs, npath}                               from '@yarnpkg/fslib';
+import {Command, Option, Usage, UsageError}                                      from 'clipanion';
+import semver                                                                    from 'semver';
+>>>>>>> upstream/cherry-pick/next-release
 
 export type Tags = {
   latest: Record<string, string>;
@@ -23,7 +32,7 @@ export default class SetVersionCommand extends BaseCommand {
 
       By default it only will set the \`packageManager\` field at the root of your project, but if the referenced release cannot be represented this way, if you already have \`yarnPath\` configured, or if you set the \`--yarn-path\` command line flag, then the release will also be downloaded from the Yarn GitHub repository, stored inside your project, and referenced via the \`yarnPath\` settings from your project \`.yarnrc.yml\` file.
 
-      A very good use case for this command is to enforce the version of Yarn used by the any single member of your team inside a same project - by doing this you ensure that you have control on Yarn upgrades and downgrades (including on your deployment servers), and get rid of most of the headaches related to someone using a slightly different version and getting a different behavior than you.
+      A very good use case for this command is to enforce the version of Yarn used by any single member of your team inside the same project - by doing this you ensure that you have control over Yarn upgrades and downgrades (including on your deployment servers), and get rid of most of the headaches related to someone using a slightly different version and getting different behavior.
 
       The version specifier can be:
 
@@ -82,8 +91,16 @@ export default class SetVersionCommand extends BaseCommand {
 
   async execute() {
     const configuration = await Configuration.find(this.context.cwd, this.context.plugins);
-    if (configuration.get(`yarnPath`) && this.onlyIfNeeded)
-      return 0;
+    if (this.onlyIfNeeded && configuration.get(`yarnPath`)) {
+      const yarnPathSource = configuration.sources.get(`yarnPath`) as PortablePath | undefined;
+      if (!yarnPathSource)
+        throw new Error(`Assertion failed: Expected 'yarnPath' to have a source`);
+
+      const projectCwd = configuration.projectCwd ?? configuration.startingCwd;
+      if (ppath.contains(projectCwd, yarnPathSource)) {
+        return 0;
+      }
+    }
 
     const getBundlePath = () => {
       if (typeof YarnVersion === `undefined`)
@@ -108,7 +125,11 @@ export default class SetVersionCommand extends BaseCommand {
     else if (this.version === `canary`)
       bundleRef = getRef(`https://repo.yarnpkg.com/{}/packages/yarnpkg-cli/bin/yarn.js`, await resolveTag(configuration, `canary`));
     else if (this.version === `classic`)
+<<<<<<< HEAD
       bundleRef = {url: `https://nightly.yarnpkg.com/latest.js`, version: `classic`};
+=======
+      bundleUrl = `https://classic.yarnpkg.com/latest.js`;
+>>>>>>> upstream/cherry-pick/next-release
     else if (this.version.match(/^https?:/))
       bundleRef = {url: this.version, version: `remote`};
     else if (this.version.match(/^\.{0,2}[\\/]/) || npath.isAbsolute(this.version))
@@ -130,6 +151,7 @@ export default class SetVersionCommand extends BaseCommand {
       const fetchBuffer = async () => {
         const filePrefix = `file://`;
 
+<<<<<<< HEAD
         if (bundleRef.url.startsWith(filePrefix)) {
           report.reportInfo(MessageName.UNNAMED, `Retrieving ${formatUtils.pretty(configuration, bundleRef.url, FormatType.PATH)}`);
           return await xfs.readFilePromise(bundleRef.url.slice(filePrefix.length) as PortablePath);
@@ -138,6 +160,16 @@ export default class SetVersionCommand extends BaseCommand {
           return await httpUtils.get(bundleRef.url, {configuration});
         }
       };
+=======
+      let bundleBuffer: Buffer;
+      if (bundleUrl.startsWith(filePrefix)) {
+        report.reportInfo(MessageName.UNNAMED, `Downloading ${formatUtils.pretty(configuration, bundleUrl, formatUtils.Type.URL)}`);
+        bundleBuffer = await xfs.readFilePromise(npath.toPortablePath(bundleUrl.slice(filePrefix.length)));
+      } else {
+        report.reportInfo(MessageName.UNNAMED, `Retrieving ${formatUtils.pretty(configuration, bundleUrl, formatUtils.Type.PATH)}`);
+        bundleBuffer = await httpUtils.get(bundleUrl, {configuration});
+      }
+>>>>>>> upstream/cherry-pick/next-release
 
       await setVersion(configuration, bundleRef.version, fetchBuffer, {report, useYarnPath: this.useYarnPath});
     });
@@ -200,8 +232,11 @@ export async function setVersion(configuration: Configuration, bundleVersion: st
   const absolutePath = ppath.resolve(releaseFolder, `yarn-${bundleVersion}.cjs` as Filename);
   const displayPath = ppath.relative(configuration.startingCwd, absolutePath);
 
+<<<<<<< HEAD
   const isTaggedYarnVersion = miscUtils.isTaggedYarnVersion(bundleVersion);
   const yarnPath = configuration.get(`yarnPath`);
+=======
+>>>>>>> upstream/cherry-pick/next-release
 
   const absolutelyMustUseYarnPath = !isTaggedYarnVersion;
   let probablyShouldUseYarnPath = absolutelyMustUseYarnPath || !!yarnPath || !!useYarnPath;
@@ -234,16 +269,27 @@ export async function setVersion(configuration: Configuration, bundleVersion: st
   } else {
     await xfs.removePromise(ppath.dirname(absolutePath));
 
+<<<<<<< HEAD
     await Configuration.updateConfiguration(projectCwd, {
       yarnPath: Configuration.deleteProperty,
     });
   }
+=======
+  await Configuration.updateConfiguration(projectCwd, {
+    yarnPath: projectPath,
+  });
+>>>>>>> upstream/cherry-pick/next-release
 
   const manifest = (await Manifest.tryFind(projectCwd)) || new Manifest();
 
   manifest.packageManager = `yarn@${
+<<<<<<< HEAD
     isTaggedYarnVersion
       ? bundleVersion!
+=======
+    bundleVersion && miscUtils.isTaggedYarnVersion(bundleVersion)
+      ? bundleVersion
+>>>>>>> upstream/cherry-pick/next-release
       // If the version isn't tagged, we use the latest stable version as the wrapper
       : await resolveTag(configuration, `stable`)
   }`;
@@ -257,8 +303,11 @@ export async function setVersion(configuration: Configuration, bundleVersion: st
   await xfs.changeFilePromise(path, content, {
     automaticNewlines: true,
   });
+<<<<<<< HEAD
 
   return {
     bundleVersion: bundleVersion!,
   };
+=======
+>>>>>>> upstream/cherry-pick/next-release
 }

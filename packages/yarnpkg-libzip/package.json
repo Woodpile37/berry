@@ -1,6 +1,10 @@
 {
   "name": "@yarnpkg/libzip",
+<<<<<<< HEAD
   "version": "3.0.0-rc.14",
+=======
+  "version": "2.3.0",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/sync.ts",
   "browser": "./sources/async.ts",
@@ -28,7 +32,11 @@
   },
   "dependencies": {
     "@types/emscripten": "^1.39.6",
+<<<<<<< HEAD
     "tslib": "^2.4.0"
+=======
+    "tslib": "^1.13.0"
+>>>>>>> upstream/cherry-pick/next-release
   },
   "engines": {
     "node": ">=14.15.0"

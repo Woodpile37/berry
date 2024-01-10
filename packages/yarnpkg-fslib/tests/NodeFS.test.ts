@@ -55,7 +55,11 @@ describe(`NodeFS`, () => {
     });
 
     it(`should support ftruncateSync`, () => {
+<<<<<<< HEAD
       xfs.mktempSync(async dir => {
+=======
+      xfs.mktempSync(dir => {
+>>>>>>> upstream/cherry-pick/next-release
         const p = `${dir}/foo.txt` as PortablePath;
         nodeFs.writeFileSync(p, `foo`);
 

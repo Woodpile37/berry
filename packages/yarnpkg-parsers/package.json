@@ -1,6 +1,10 @@
 {
   "name": "@yarnpkg/parsers",
+<<<<<<< HEAD
   "version": "3.0.0-rc.14",
+=======
+  "version": "2.6.0",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "dependencies": {

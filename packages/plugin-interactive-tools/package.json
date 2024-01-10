@@ -1,13 +1,21 @@
 {
   "name": "@yarnpkg/plugin-interactive-tools",
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
   "stableVersion": "3.1.4",
+=======
+  "version": "3.1.6",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "dependencies": {
     "@yarnpkg/libui": "workspace:^",
     "algoliasearch": "^4.2.0",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
+=======
+    "clipanion": "3.2.0-rc.4",
+>>>>>>> upstream/cherry-pick/next-release
     "diff": "^5.1.0",
     "ink": "^3.0.8",
     "ink-text-input": "^4.0.1",

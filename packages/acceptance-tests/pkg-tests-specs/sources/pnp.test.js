@@ -1096,7 +1096,7 @@ describe(`Plug'n'Play`, () => {
 
             await run2(`install`);
 
-            expect(readFile(`${path2}/.pnp.cjs`, `utf8`)).resolves.toEqual(await readFile(`${path}/.pnp.cjs`, `utf8`));
+            await expect(readFile(`${path2}/.pnp.cjs`, `utf8`)).resolves.toEqual(await readFile(`${path}/.pnp.cjs`, `utf8`));
           },
         )();
       },
@@ -1395,6 +1395,7 @@ describe(`Plug'n'Play`, () => {
         expect(rndAfter).not.toEqual(rndBefore);
       },
     ),
+    15000,
   );
 
   test(
@@ -1574,6 +1575,7 @@ describe(`Plug'n'Play`, () => {
         );
       },
     ),
+    15000,
   );
 
   test(
@@ -2123,5 +2125,82 @@ describe(`Plug'n'Play`, () => {
         });
       },
     ),
+  );
+
+  test(
+    `it should respect user provided conditions`,
+    makeTemporaryEnv(
+      {
+        imports: {
+          '#foo': {
+            custom: `./custom.js`,
+            default: `./404.js`,
+          },
+        },
+      },
+      async ({path, run, source}) => {
+        await expect(run(`install`)).resolves.toMatchObject({code: 0});
+
+        await xfs.writeFilePromise(ppath.join(path, `custom.js`), `console.log('foo')`);
+        await xfs.writeFilePromise(ppath.join(path, `index.js`), `require('#foo')`);
+
+        await expect(run(`node`, `--conditions`, `custom`, `./index.js`)).resolves.toMatchObject({
+          code: 0,
+          stdout: `foo\n`,
+          stderr: ``,
+        });
+
+        if (satisfies(process.versions.node, `>=14.0.0`)) {
+          await expect(run(`node`, `-C`, `custom`, `./index.js`)).resolves.toMatchObject({
+            code: 0,
+            stdout: `foo\n`,
+            stderr: ``,
+          });
+        }
+
+        await expect(
+          run(`node`, `./index.js`, {
+            env: {
+              NODE_OPTIONS: `--conditions custom`,
+            },
+          }),
+        ).resolves.toMatchObject({
+          code: 0,
+          stdout: `foo\n`,
+          stderr: ``,
+        });
+
+        if (satisfies(process.versions.node, `>=14.0.0`)) {
+          await expect(
+            run(`node`, `./index.js`, {
+              env: {
+                NODE_OPTIONS: `-C custom`,
+              },
+            }),
+          ).resolves.toMatchObject({
+            code: 0,
+            stdout: `foo\n`,
+            stderr: ``,
+          });
+        }
+      },
+    ),
+  );
+
+  testIf(
+    () => satisfies(process.versions.node, `>=14`),
+    `it should emit a warning for circular dependency exports access`,
+    makeTemporaryEnv({}, async ({path, run, source}) => {
+      await expect(run(`install`)).resolves.toMatchObject({code: 0});
+
+      await xfs.writeFilePromise(ppath.join(path, `a.js`), `require('./b.js');`);
+      await xfs.writeFilePromise(ppath.join(path, `b.js`), `require('./a.js').foo;`);
+
+      await expect(run(`node`, `./a.js`)).resolves.toMatchObject({
+        code: 0,
+        stdout: ``,
+        stderr: expect.stringContaining(`of module exports inside circular dependency`),
+      });
+    }),
   );
 });

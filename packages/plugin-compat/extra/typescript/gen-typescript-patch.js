@@ -17,6 +17,8 @@ const IGNORED_VERSIONS = new Set([
   `4.0.0-beta`,
   `4.3.0-beta`,
   `4.4.0-beta`,
+  // Broken publish - missing files
+  `4.9.0-beta`,
 ]);
 
 const SLICES = [
@@ -104,12 +106,103 @@ const SLICES = [
     onto: `6e62273fa1e7469b89b589667c2c233789c62176`,
     range: `>=4.7.0-beta <4.8`,
   },
-  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.8
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.8.0-beta
   {
     from: `3287098f4785fd652112beadf3b33a960fcd19aa`,
     to: `3287098f4785fd652112beadf3b33a960fcd19aa`,
     onto: `9a09c37878a45b06994485fdb510eb4d24587dcb`,
-    range: `>=4.8.0-beta`,
+    range: `>=4.8.0-beta <4.8.1-rc`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.8-stable
+  {
+    from: `623a7ac5aa49250155d39e604b09b4d015468a9c`,
+    to: `30840e0c2ad8e115c518f87379b7cb55fdf77f03`,
+    onto: `60b5167a2a7015759d048cdd4655d1f66a8416a2`,
+    range: `>=4.8.1-rc <4.8.4`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.8
+  {
+    from: `d3747e92c3cd2d1f98739382c14226a725df38fd`,
+    to: `5b9a74243e47db6113e857eabe5d26589fa0b64f`,
+    onto: `a614119c1921ca61d549a7eee65c0b8c69c28752`,
+    range: `>=4.8.4 <4.9.1-beta`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.9-beta
+  {
+    from: `69c84aacfcea603c4d74721366cdcbbebd1c1681`,
+    to: `18b67922d3dcc5215541a38bf6417972270bf60f`,
+    onto: `549b5429d4837344e8c99657109bb6538fd2dbb5`,
+    range: `>=4.9.1-beta <4.9.2-rc`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.9-rc
+  {
+    from: `5613f8d8e30dfa9fb3da15e2b8432ed7e2347a12`,
+    to: `d3a8a86ce4774d607c5a4a225cc5b59b1f96f42f`,
+    onto: `107f832b80df2dc97748021cb00af2b6813db75b`,
+    range: `>=4.9.2-rc <4.9.4`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.9
+  {
+    from: `a0859a75a408ec95222a3f0175ba0644d60396f1`,
+    to: `936e68ba96e004bd32e438d64ac720c3bfe5576b`,
+    onto: `e2868216f637e875a74c675845625eb15dcfe9a2`,
+    range: `>=4.9.4 <5.0.0-beta`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-5.0-beta
+  {
+    from: `65bff6fadce4736bb9a77213ba8016f1ac7d25e5`,
+    to: `6225be2771938c6a1fce825eabe66292e4ace489`,
+    onto: `dcad07ffd29854e2b93a86da0ba197f6eec21698`,
+    range: `>=5.0.0-beta <5.0.1-rc`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-5.0
+  {
+    from: `2c85874875fdf1f1182733b99afe47604915bfec`,
+    to: `9a2c1c80b05a5fbd5bc6d2bfcbaa617793a236ab`,
+    onto: `89515ce7e31d0bfaef776ac25929a78015cceb82`,
+    range: `>=5.0.1-rc <5.1.0-beta`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-5.1-beta
+  {
+    from: `a6ef895fb06014c416cce2f80969912ec5ea47d5`,
+    to: `a6ef895fb06014c416cce2f80969912ec5ea47d5`,
+    onto: `1c5cc6152322cd5b131b6e617e0947bcb068fc4a`,
+    range: `>=5.1.0-beta <5.1.1-rc`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-5.1
+  {
+    from: `20514ce182c598568e4a9c7ed60a4ce84740cecd`,
+    to: `20514ce182c598568e4a9c7ed60a4ce84740cecd`,
+    onto: `5c47c6ab567cace50ab5f331a7381b9f0edb56ca`,
+    range: `>=5.1.1-rc <5.2.0-beta`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-5.2-beta
+  {
+    from: `8781702c1b45bd2d5d437c0a138dd62b57b9b284`,
+    to: `8781702c1b45bd2d5d437c0a138dd62b57b9b284`,
+    onto: `d6e7eb6cf08a1cc8fb6d9888f74b0e694cc2a7b0`,
+    range: `>=5.2.0-beta <5.2.1-rc`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-5.2
+  {
+    from: `8c288a316928c9c161215fdf91ef015caa610d5b`,
+    to: `8c288a316928c9c161215fdf91ef015caa610d5b`,
+    onto: `6074b9d12b70757fe68ab2b4da059ea363c4df04`,
+    range: `>=5.2.1-rc <5.3.0-beta`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-5.3-beta
+  {
+    from: `2b564c684dc5338c59c31f4658b737912ad46336`,
+    to: `2b564c684dc5338c59c31f4658b737912ad46336`,
+    onto: `c5de6b57b7f09a6d17eb4a5dab91ecf8f5b25f29`,
+    range: `>=5.3.0-beta <5.3.1-rc`,
+  },
+  // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-5.3
+  {
+    from: `9fb5c1cac14376fe615dfd48ddbe4e97c2e6ac90`,
+    to: `9fb5c1cac14376fe615dfd48ddbe4e97c2e6ac90`,
+    onto: `88f80c75e1a4ab6aaec605aa4ec6281b87871ff0`,
+    range: `>=5.3.1-rc`,
   },
 ];
 
@@ -144,7 +237,13 @@ async function execFile(binary, args, {checkExitCode = true, ...opts} = {}) {
   console.log(`${binary} ${args.join(` `)}`);
 
   return new Promise((resolve, reject) => {
-    const child = cp.spawn(binary, args, opts);
+    const child = cp.spawn(binary, args, {
+      ...opts,
+      env: {
+        ...process.env,
+        NODE_OPTIONS: undefined,
+      },
+    });
 
     const outChunks = [];
     const allChunks = [];
@@ -262,7 +361,7 @@ async function buildRepository({from, to, onto}) {
     }
   }
 
-  await execFile(`./node_modules/.bin/gulp`, [`local`, `LKG`], TS_REPO_SPAWN);
+  await execFile(fs.existsSync(`${TS_REPO}/node_modules/.bin/hereby`) ? `./node_modules/.bin/hereby` : `./node_modules/.bin/gulp`, [`local`, `LKG`], TS_REPO_SPAWN);
 
   // It seems that in some circumstances the build can produce incorrect artifacts. When
   // that happens, the final binary is very small. We try to detect that.
@@ -282,13 +381,21 @@ async function buildRepository({from, to, onto}) {
 async function run({from, to, onto, range}) {
   const hash = crypto
     .createHash(`md5`)
-    .update(JSON.stringify({from, to, onto, range}))
+    .update(JSON.stringify({from, to, onto}))
     .digest(`hex`);
 
   const patchFile = path.join(__dirname, `patch-${hash}.diff`);
   if (fs.existsSync(patchFile)) {
-    console.log(`Skipping; file ${path.basename(patchFile)} already exists`);
-    return patchFile;
+    const originalContent = await fs.promises.readFile(patchFile, `utf8`);
+    const updatedContent = originalContent.replace(/^semver exclusivity .*\n/gm, `semver exclusivity ${range}\n`);
+    if (originalContent !== updatedContent) {
+      console.log(`Updating range for ${path.basename(patchFile)}`);
+      await fs.promises.writeFile(patchFile, updatedContent);
+      return {patchFile, content: updatedContent};
+    } else {
+      console.log(`Skipping; patch ${path.basename(patchFile)} already exists`);
+      return {patchFile, content: originalContent};
+    }
   }
 
   await cloneRepository();
@@ -306,10 +413,10 @@ async function run({from, to, onto, range}) {
 
   await fs.promises.writeFile(patchFile, patch);
 
-  return patchFile;
+  return {patchFile, content: patch};
 }
 
-async function validate(version, patchFile) {
+async function validate(version, patch) {
   const tmpDir = path.join(TMP_DIR, `v${version}`);
   const tarball = path.join(tmpDir, `package.tgz`);
 
@@ -323,15 +430,14 @@ async function validate(version, patchFile) {
   if (!fs.existsSync(path.join(tmpDir, `package`)))
     await execFile(`tar`, [`xvf`, tarball], {cwd: tmpDir});
 
-  let patch = await fs.promises.readFile(patchFile, `utf8`);
-  patch = patch.replace(/^semver .*\n/gm, ``);
-  await fs.promises.writeFile(path.join(tmpDir, `patch.diff`), patch);
+  const patchContent = patch.content.replace(/^semver exclusivity .*\n/gm, ``);
+  await fs.promises.writeFile(path.join(tmpDir, `patch.diff`), patchContent);
 
   await execFile(`git`, [`apply`, `--check`, `../patch.diff`], {cwd: path.join(tmpDir, `package`)});
 }
 
 async function main() {
-  const patchFiles = [];
+  const patches = [];
   let isFirst = true;
 
   for (const slice of SLICES) {
@@ -343,29 +449,25 @@ async function main() {
     console.log(`## Slice: ${JSON.stringify(slice)}`);
     console.log();
 
-    const patchFile = await run(slice);
+    const patch = await run(slice);
     const versions = await fetchVersions(slice.range);
 
     for (const version of versions) {
       console.log(`Validating ${version}...`);
-      await validate(version, patchFile);
+      await validate(version, patch);
     }
 
-    patchFiles.push(patchFile);
+    patches.push(patch);
   }
 
-  const patches = await Promise.all(patchFiles.map(patchFile => {
-    return fs.promises.readFile(patchFile, `utf8`);
-  }));
-
   const aggregatePatchFile = path.join(TMP_DIR, `patch.diff`);
-  await fs.promises.writeFile(aggregatePatchFile, patches.join(``));
+  await fs.promises.writeFile(aggregatePatchFile, patches.map(patch => patch.content).join(``));
 
   const jsPatchFile = path.join(__dirname, `../../sources/patches/typescript.patch.ts`);
   await execFile(`node`, [path.join(__dirname, `../createPatch.js`), aggregatePatchFile, jsPatchFile]);
 
   // Remove old patches
-  const patchFilesSet = new Set(patchFiles);
+  const patchFilesSet = new Set(patches.map(patch => patch.patchFile));
   for await (const {name: patchName} of await fs.promises.opendir(__dirname)) {
     if (patchName.endsWith(`.diff`) && !patchFilesSet.has(path.join(__dirname, patchName))) {
       console.log(`Cleanup; file ${patchName} not in use`);

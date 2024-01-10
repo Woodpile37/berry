@@ -10,8 +10,13 @@
     "@yarnpkg/plugin-pnp": "workspace:^",
     "@yarnpkg/pnp": "workspace:^",
     "@zkochan/cmd-shim": "^5.1.0",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
     "tslib": "^2.4.0"
+=======
+    "clipanion": "3.2.0-rc.4",
+    "tslib": "^1.13.0"
+>>>>>>> upstream/cherry-pick/next-release
   },
   "peerDependencies": {
     "@yarnpkg/cli": "workspace:^",
@@ -21,7 +26,11 @@
     "@yarnpkg/cli": "workspace:^",
     "@yarnpkg/core": "workspace:^"
   },
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
+=======
+  "version": "3.1.6",
+>>>>>>> upstream/cherry-pick/next-release
   "nextVersion": {
     "semver": "2.0.0-rc.5",
     "nonce": "1989925236539513"

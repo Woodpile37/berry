@@ -15,7 +15,11 @@ export type RenderFormOptions = {
   stderr: Writable;
 };
 
+<<<<<<< HEAD
 export async function renderForm<T, C extends React.ComponentType = React.ComponentType>(UserComponent: SubmitInjectedComponent<T, C>, props: InferProps<C>, {stdin, stdout, stderr}: RenderFormOptions) {
+=======
+export async function renderForm<T, C extends React.ComponentType = React.ComponentType>(UserComponent: SubmitInjectedComponent<T, C>, props: InferProps<C>, {stdin, stdout, stderr}: RenderFormOptions = {}) {
+>>>>>>> upstream/cherry-pick/next-release
   let returnedValue: T | undefined;
 
   const useSubmit = (value: T) => {

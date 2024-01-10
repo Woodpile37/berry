@@ -1,7 +1,11 @@
 {
   "name": "@yarnpkg/fslib",
+<<<<<<< HEAD
   "version": "3.0.0-rc.14",
   "stableVersion": "2.7.0",
+=======
+  "version": "2.10.3",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "sideEffects": false,

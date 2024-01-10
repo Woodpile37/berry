@@ -109,6 +109,28 @@ describe(`Commands`, () => {
     );
 
     test(
+      `should support self referencing workspaces field`,
+      makeTemporaryEnv(
+        {
+          private: true,
+          workspaces: [`.`],
+        },
+        async ({path, run}) => {
+          await writeFile(`${path}/.yarnrc.yml`, `plugins:\n  - ${JSON.stringify(require.resolve(`@yarnpkg/monorepo/scripts/plugin-workspace-tools.js`))}\n`);
+          await run(`install`);
+
+          await expect(run(`workspaces`, `foreach`, `exec`, `echo`, `42`)).resolves.toMatchObject(
+            {
+              code: 0,
+              stdout: `42\nDone\n`,
+              stderr: ``,
+            },
+          );
+        },
+      ),
+    );
+
+    test(
       `should execute 'node' command`,
       makeTemporaryEnv(
         {
@@ -207,6 +229,22 @@ describe(`Commands`, () => {
           await run(`install`);
 
           await expect(run(`workspaces`, `foreach`, `--verbose`, `run`, `print`)).resolves.toMatchSnapshot();
+        },
+      ),
+    );
+
+    test(
+      `should not include the prefix or a ➤ character when run with --no-verbose`,
+      makeTemporaryEnv(
+        {
+          private: true,
+          workspaces: [`packages/*`],
+        },
+        async ({path, run}) => {
+          await setupWorkspaces(path);
+          await run(`install`);
+
+          await expect(run(`workspaces`, `foreach`, `--no-verbose`, `run`, `print`)).resolves.toMatchSnapshot();
         },
       ),
     );

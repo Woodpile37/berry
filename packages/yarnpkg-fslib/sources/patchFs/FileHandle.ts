@@ -1,4 +1,8 @@
 import type {BigIntStats, ReadStream, StatOptions, Stats, WriteStream, WriteVResult} from 'fs';
+<<<<<<< HEAD
+=======
+import {createInterface}                                                             from 'readline';
+>>>>>>> upstream/cherry-pick/next-release
 
 import type {CreateReadStreamOptions, CreateWriteStreamOptions, FakeFS}              from '../FakeFS';
 import type {Path}                                                                   from '../path';
@@ -96,9 +100,19 @@ export class FileHandle<P extends Path> {
     }
   }
 
+<<<<<<< HEAD
   // FIXME: Missing FakeFS version
   chown(uid: number, gid: number): Promise<void> {
     throw new Error(`Method not implemented.`);
+=======
+  async chown(uid: number, gid: number): Promise<void> {
+    try {
+      this[kRef](this.chown);
+      return await this[kBaseFs].fchownPromise(this.fd, uid, gid);
+    } finally {
+      this[kUnref]();
+    }
+>>>>>>> upstream/cherry-pick/next-release
   }
 
   async chmod(mode: number): Promise<void> {
@@ -208,6 +222,16 @@ export class FileHandle<P extends Path> {
     }
   }
 
+<<<<<<< HEAD
+=======
+  readLines(options?: CreateReadStreamOptions) {
+    return createInterface({
+      input: this.createReadStream(options),
+      crlfDelay: Infinity,
+    });
+  }
+
+>>>>>>> upstream/cherry-pick/next-release
   stat(
     opts?: StatOptions & {
       bigint?: false | undefined;

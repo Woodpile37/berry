@@ -1,12 +1,22 @@
 {
   "name": "@yarnpkg/plugin-init",
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
+=======
+  "version": "3.2.1",
+>>>>>>> upstream/cherry-pick/next-release
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "dependencies": {
     "@yarnpkg/fslib": "workspace:^",
+<<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",
     "tslib": "^2.4.0"
+=======
+    "clipanion": "3.2.0-rc.4",
+    "lodash": "^4.17.15",
+    "tslib": "^1.13.0"
+>>>>>>> upstream/cherry-pick/next-release
   },
   "peerDependencies": {
     "@yarnpkg/cli": "workspace:^",

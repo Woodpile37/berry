@@ -1,9 +1,18 @@
+<<<<<<< HEAD
 import {BaseCommand, WorkspaceRequiredError}                                                  from '@yarnpkg/cli';
 import {Configuration, Descriptor, DescriptorHash, Manifest, Project, structUtils, Workspace} from '@yarnpkg/core';
 import {npath, xfs, ppath, PortablePath, Filename}                                            from '@yarnpkg/fslib';
 import {Command, Option, Usage, UsageError}                                                   from 'clipanion';
 
 import * as patchUtils                                                                        from '../patchUtils';
+=======
+import {BaseCommand, WorkspaceRequiredError}                             from '@yarnpkg/cli';
+import {Configuration, Descriptor, DescriptorHash, Project, structUtils} from '@yarnpkg/core';
+import {npath, xfs, ppath, PortablePath, Filename}                       from '@yarnpkg/fslib';
+import {Command, Option, Usage, UsageError}                              from 'clipanion';
+
+import * as patchUtils                                                   from '../patchUtils';
+>>>>>>> upstream/cherry-pick/next-release
 
 // eslint-disable-next-line arca/no-default-export
 export default class PatchCommitCommand extends BaseCommand {
@@ -63,7 +72,10 @@ export default class PatchCommitCommand extends BaseCommand {
     await xfs.mkdirPromise(patchFolder, {recursive: true});
     await xfs.writeFilePromise(patchPath, diff);
 
+<<<<<<< HEAD
     const workspaceDependents: Array<Workspace> = [];
+=======
+>>>>>>> upstream/cherry-pick/next-release
     const transitiveDependencies = new Map<DescriptorHash, Descriptor>();
 
     for (const pkg of project.storedPackages.values()) {
@@ -74,7 +86,14 @@ export default class PatchCommitCommand extends BaseCommand {
       if (!descriptor)
         continue;
 
+<<<<<<< HEAD
       const devirtualizedDescriptor = structUtils.ensureDevirtualizedDescriptor(descriptor);
+=======
+      const devirtualizedDescriptor = structUtils.isVirtualDescriptor(descriptor)
+        ? structUtils.devirtualizeDescriptor(descriptor)
+        : descriptor;
+
+>>>>>>> upstream/cherry-pick/next-release
       const unpatchedDescriptor = patchUtils.ensureUnpatchedDescriptor(devirtualizedDescriptor);
 
       const resolution = project.storedResolutions.get(unpatchedDescriptor.descriptorHash);
@@ -85,6 +104,7 @@ export default class PatchCommitCommand extends BaseCommand {
       if (!dependency)
         throw new Error(`Assertion failed: Expected the package to have been registered`);
 
+<<<<<<< HEAD
       const workspace = project.tryWorkspaceByLocator(pkg);
       if (workspace) {
         workspaceDependents.push(workspace);
@@ -115,13 +135,29 @@ export default class PatchCommitCommand extends BaseCommand {
 
         workspace.manifest[dependencyType].set(originalDescriptor.identHash, newDescriptor);
       }
+=======
+      const originalPkg = project.originalPackages.get(pkg.locatorHash);
+      if (!originalPkg)
+        throw new Error(`Assertion failed: Expected the original package to have been registered`);
+
+      const originalDependency = originalPkg.dependencies.get(descriptor.identHash);
+      if (!originalDependency)
+        throw new Error(`Assertion failed: Expected the original dependency to have been registered`);
+
+      transitiveDependencies.set(originalDependency.descriptorHash, originalDependency);
+>>>>>>> upstream/cherry-pick/next-release
     }
 
     for (const originalDescriptor of transitiveDependencies.values()) {
       const newDescriptor = patchUtils.makeDescriptor(originalDescriptor, {
         parentLocator: null,
         sourceDescriptor: structUtils.convertLocatorToDescriptor(locator),
+<<<<<<< HEAD
         patchPaths: [ppath.join(Filename.home, ppath.relative(project.cwd, patchPath))],
+=======
+        sourceVersion: null,
+        patchPaths: [`./${ppath.relative(project.cwd, patchPath)}` as PortablePath],
+>>>>>>> upstream/cherry-pick/next-release
       });
 
       project.topLevelWorkspace.manifest.resolutions.push({

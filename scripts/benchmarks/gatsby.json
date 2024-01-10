@@ -1,5 +1,6 @@
 {
   "dependencies": {
+<<<<<<< HEAD
     "gatsby": "^4",
     "gatsby-plugin-gatsby-cloud": "^4",
     "gatsby-plugin-image": "^2",
@@ -14,5 +15,10 @@
     "react": "^18",
     "react-dom": "^18",
     "react-helmet": "^6"
+=======
+    "gatsby": "^5",
+    "react": "^18",
+    "react-dom": "^18"
+>>>>>>> upstream/cherry-pick/next-release
   }
 }

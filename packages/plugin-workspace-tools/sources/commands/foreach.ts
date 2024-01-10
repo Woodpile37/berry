@@ -1,11 +1,10 @@
 import {BaseCommand, WorkspaceRequiredError}                         from '@yarnpkg/cli';
 import {Configuration, LocatorHash, Project, scriptUtils, Workspace} from '@yarnpkg/core';
 import {DescriptorHash, MessageName, Report, StreamReport}           from '@yarnpkg/core';
-import {formatUtils, miscUtils, structUtils}                         from '@yarnpkg/core';
+import {formatUtils, miscUtils, structUtils, nodeUtils}              from '@yarnpkg/core';
 import {gitUtils}                                                    from '@yarnpkg/plugin-git';
 import {Command, Option, Usage, UsageError}                          from 'clipanion';
 import micromatch                                                    from 'micromatch';
-import {cpus}                                                        from 'os';
 import pLimit                                                        from 'p-limit';
 import {Writable}                                                    from 'stream';
 import {WriteStream}                                                 from 'tty';
@@ -200,7 +199,11 @@ export default class WorkspacesForeachCommand extends BaseCommand {
     const concurrency = this.parallel ?
       (this.jobs === `unlimited`
         ? Infinity
+<<<<<<< HEAD
         : Number(this.jobs) || Math.max(1, cpus().length / 2))
+=======
+        : Number(this.jobs) || Math.ceil(nodeUtils.availableParallelism() / 2))
+>>>>>>> upstream/cherry-pick/next-release
       : 1;
 
     // No need to parallelize if we were explicitly asked for one job
@@ -221,6 +224,7 @@ export default class WorkspacesForeachCommand extends BaseCommand {
     const report = await StreamReport.start({
       configuration,
       stdout: this.context.stdout,
+      includePrefix: false,
     }, async report => {
       const runCommand = async (workspace: Workspace, {commandIndex}: {commandIndex: number}) => {
         if (abortNextCommands)
@@ -400,8 +404,7 @@ function getPrefix(workspace: Workspace, {configuration, commandIndex, verbose}:
   if (!verbose)
     return null;
 
-  const ident = structUtils.convertToIdent(workspace.locator);
-  const name = structUtils.stringifyIdent(ident);
+  const name = structUtils.stringifyIdent(workspace.locator);
 
   const prefix = `[${name}]:`;
 
