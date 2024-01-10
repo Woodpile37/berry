@@ -1,7 +1,7 @@
 import {Fetcher, FetchOptions, MinimalFetchOptions, FetchResult} from '@yarnpkg/core';
 import {Locator}                                                 from '@yarnpkg/core';
 import {miscUtils, scriptUtils, structUtils, tgzUtils}           from '@yarnpkg/core';
-import {PortablePath, ppath, xfs}                                from '@yarnpkg/fslib';
+import {ppath, xfs}                                              from '@yarnpkg/fslib';
 
 import * as gitUtils                                             from './gitUtils';
 import {Hooks}                                                   from './index';
@@ -17,20 +17,19 @@ export class GitFetcher implements Fetcher {
 
   async fetch(locator: Locator, opts: FetchOptions) {
     const expectedChecksum = opts.checksums.get(locator.locatorHash) || null;
-    const normalizedLocator = gitUtils.normalizeLocator(locator);
 
     const checksums = new Map(opts.checksums);
-    checksums.set(normalizedLocator.locatorHash, expectedChecksum);
+    checksums.set(locator.locatorHash, expectedChecksum);
     const nextOpts = {...opts, checksums};
 
-    const result = await this.downloadHosted(normalizedLocator, nextOpts);
+    const result = await this.downloadHosted(locator, nextOpts);
     if (result !== null)
       return result;
 
     const [packageFs, releaseFs, checksum] = await opts.cache.fetchPackageFromCache(locator, expectedChecksum, {
       onHit: () => opts.report.reportCacheHit(locator),
       onMiss: () => opts.report.reportCacheMiss(locator, `${structUtils.prettyLocator(opts.project.configuration, locator)} can't be found in the cache and will be fetched from the remote repository`),
-      loader: () => this.cloneFromRemote(normalizedLocator, nextOpts),
+      loader: () => this.cloneFromRemote(locator, nextOpts),
       ...opts.cacheOptions,
     });
 
@@ -52,7 +51,7 @@ export class GitFetcher implements Fetcher {
     const cloneTarget = await gitUtils.clone(locator.reference, opts.project.configuration);
 
     const repoUrlParts = gitUtils.splitRepoUrl(locator.reference);
-    const packagePath = ppath.join(cloneTarget, `package.tgz` as PortablePath);
+    const packagePath = ppath.join(cloneTarget, `package.tgz`);
 
     await scriptUtils.prepareExternalProject(cloneTarget, packagePath, {
       configuration: opts.project.configuration,
@@ -65,7 +64,7 @@ export class GitFetcher implements Fetcher {
 
     return await miscUtils.releaseAfterUseAsync(async () => {
       return await tgzUtils.convertToZip(sourceBuffer, {
-        compressionLevel: opts.project.configuration.get(`compressionLevel`),
+        configuration: opts.project.configuration,
         prefixPath: structUtils.getIdentVendorPath(locator),
         stripComponents: 1,
       });

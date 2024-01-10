@@ -1,6 +1,14 @@
-import {xfs, npath}    from '@yarnpkg/fslib';
-import {fs as fsUtils} from 'pkg-tests-core';
-import tar             from 'tar';
+import {xfs, npath}          from '@yarnpkg/fslib';
+import {fs as fsUtils, misc} from 'pkg-tests-core';
+import tar                   from 'tar';
+
+async function genPackList(run) {
+  const {stdout} = await run(`pack`, `--dry-run`, `--json`);
+
+  return misc.parseJsonStream(stdout).map(entry => {
+    return entry.location;
+  }).filter(location => !!location);
+}
 
 describe(`Commands`, () => {
   describe(`pack`, () => {
@@ -289,7 +297,7 @@ describe(`Commands`, () => {
     test(
       `it should ignore the folders covered by the local npmignore file`,
       makeTemporaryEnv({}, async ({path, run, source}) => {
-        await fsUtils.mkdirp(`${path}/__tests__/`);
+        await xfs.mkdirPromise(`${path}/__tests__`);
         await fsUtils.writeFile(`${path}/__tests__/index.js`, `module.exports = 42;\n`);
         await fsUtils.writeFile(`${path}/.npmignore`, `__tests__\n`);
 
@@ -317,6 +325,151 @@ describe(`Commands`, () => {
     );
 
     test(
+      `it should support gitignore patterns (*)`,
+      makeTemporaryEnv({}, async ({path, run, source}) => {
+        await fsUtils.writeFile(`${path}/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/.gitignore`, `x.js\n`);
+
+        await run(`install`);
+
+        await expect(genPackList(run)).resolves.toEqual([
+          `foo/y.js`,
+          `package.json`,
+          `y.js`,
+        ]);
+      }),
+    );
+
+    test(
+      `it should allow to explicitly add back a file excluded by a gitignore`,
+      makeTemporaryEnv({}, async ({path, run, source}) => {
+        await fsUtils.writeFile(`${path}/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/.gitignore`, `*.js\n!x.js\n`);
+
+        await run(`install`);
+
+        await expect(genPackList(run)).resolves.toEqual([
+          `foo/x.js`,
+          `package.json`,
+          `x.js`,
+        ]);
+      }),
+    );
+
+    test(
+      `it should allow to explicitly add back a single file excluded by a gitignore`,
+      makeTemporaryEnv({}, async ({path, run, source}) => {
+        await fsUtils.writeFile(`${path}/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/.gitignore`, `*.js\n!/x.js\n`);
+
+        await run(`install`);
+
+        await expect(genPackList(run)).resolves.toEqual([
+          `package.json`,
+          `x.js`,
+        ]);
+      }),
+    );
+
+    test(
+      `it should support gitignore patterns (**)`,
+      makeTemporaryEnv({}, async ({path, run, source}) => {
+        await fsUtils.writeFile(`${path}/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/bar/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/bar/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/.gitignore`, `**/x.js\n`);
+
+        await run(`install`);
+
+        await expect(genPackList(run)).resolves.toEqual([
+          `foo/bar/y.js`,
+          `foo/y.js`,
+          `package.json`,
+          `x.js`, // TODO: This shouldn't be here; https://github.com/yarnpkg/berry/issues/5872
+          `y.js`,
+        ]);
+      }),
+    );
+
+    test(
+      `it should keep digging inside excluded folders (unlike gitignore!)`,
+      makeTemporaryEnv({}, async ({path, run, source}) => {
+        await fsUtils.writeFile(`${path}/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/bar/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/bar/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/.gitignore`, `*\n!x.js\n`);
+
+        await run(`install`);
+
+        await expect(genPackList(run)).resolves.toEqual([
+          `foo/bar/x.js`,
+          `foo/x.js`,
+          `package.json`,
+          `x.js`,
+        ]);
+      }),
+    );
+
+    test(
+      `it should keep digging inside excluded folders (unlike gitignore!)`,
+      makeTemporaryEnv({}, async ({path, run, source}) => {
+        await fsUtils.writeFile(`${path}/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/bar/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/bar/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/.gitignore`, `*\n!x.js\n`);
+
+        await run(`install`);
+
+        await expect(genPackList(run)).resolves.toEqual([
+          `foo/bar/x.js`,
+          `foo/x.js`,
+          `package.json`,
+          `x.js`,
+        ]);
+      }),
+    );
+
+    // TODO: https://github.com/yarnpkg/berry/issues/5872
+    test.skip(
+      `it should be possible to re-exclude something which got not-excluded`,
+      makeTemporaryEnv({}, async ({path, run, source}) => {
+        await fsUtils.writeFile(`${path}/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/bar/x.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/foo/bar/y.js`, `module.exports = 42;\n`);
+        await fsUtils.writeFile(`${path}/.gitignore`, `*\n!x.js\nfoo/bar\n`);
+
+        await run(`install`);
+
+        await expect(genPackList(run)).resolves.toEqual([
+          `foo/x.js`,
+          `package.json`,
+          `x.js`,
+        ]);
+      }),
+    );
+
+    test(
       `it should override fields in the packed manifest`,
       makeTemporaryEnv({
         type: `commonjs`,
@@ -339,7 +492,7 @@ describe(`Commands`, () => {
 
         await fsUtils.unpackToDirectory(path, `${path}/package.tgz`);
 
-        const packedManifest = await fsUtils.readJson(`${path}/package/package.json`);
+        const packedManifest = await xfs.readJsonPromise(`${path}/package/package.json`);
 
         expect(packedManifest.type).toBe(`module`);
         expect(packedManifest.main).toBe(`./published.js`);
@@ -348,7 +501,7 @@ describe(`Commands`, () => {
         expect(packedManifest.exports).toBe(`./published.modern.js`);
         expect(packedManifest.imports).toEqual({[`#dep`]: `published`});
 
-        const originalManifest = await fsUtils.readJson(`${path}/package.json`);
+        const originalManifest = await xfs.readJsonPromise(`${path}/package.json`);
 
         expect(originalManifest.type).toBe(`commonjs`);
         expect(originalManifest.main).toBe(`./index.js`);
@@ -418,7 +571,7 @@ describe(`Commands`, () => {
 
         await fsUtils.unpackToDirectory(path, `${path}/dependant/package.tgz`);
 
-        const packedManifest = await fsUtils.readJson(`${path}/package/package.json`);
+        const packedManifest = await xfs.readJsonPromise(`${path}/package/package.json`);
 
         expect(packedManifest.dependencies[dependency]).toBe(`1.0.0`);
         expect(packedManifest.devDependencies[dependency]).toBe(`^1.0.0`);
@@ -429,7 +582,7 @@ describe(`Commands`, () => {
         expect(packedManifest.peerDependencies[bar]).toBe(`~3.0.0`);
         expect(packedManifest.optionalDependencies[optional]).toBe(`4.0.0`);
 
-        const originalManifest = await fsUtils.readJson(`${path}/dependant/package.json`);
+        const originalManifest = await xfs.readJsonPromise(`${path}/dependant/package.json`);
 
         expect(originalManifest.dependencies[dependency]).toBe(`workspace:*`);
         expect(originalManifest.devDependencies[dependency]).toBe(`workspace:^1.0.0`);
@@ -726,12 +879,12 @@ describe(`Commands`, () => {
 
         await fsUtils.unpackToDirectory(path, `${path}/dependant/package.tgz`);
 
-        const packedManifest = await fsUtils.readJson(`${path}/package/package.json`);
+        const packedManifest = await xfs.readJsonPromise(`${path}/package/package.json`);
 
         expect(packedManifest.dependencies[dependency]).toBe(`^1.0.0`);
         expect(packedManifest.devDependencies[dependency]).toBe(`1.0.0`);
 
-        const originalManifest = await fsUtils.readJson(`${path}/dependant/package.json`);
+        const originalManifest = await xfs.readJsonPromise(`${path}/dependant/package.json`);
 
         expect(originalManifest.dependencies).toBe(undefined);
         expect(originalManifest.devDependencies[dependency]).toBe(`workspace:*`);

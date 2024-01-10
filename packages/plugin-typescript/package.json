@@ -1,8 +1,12 @@
 {
   "name": "@yarnpkg/plugin-typescript",
-  "version": "4.0.0-rc.14",
+  "version": "4.0.0",
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
+  "exports": {
+    ".": "./sources/index.ts",
+    "./package.json": "./package.json"
+  },
   "dependencies": {
     "@yarnpkg/fslib": "workspace:^",
     "@yarnpkg/plugin-pack": "workspace:^",
@@ -34,13 +38,16 @@
   },
   "publishConfig": {
     "main": "./lib/index.js",
-    "typings": "./lib/index.d.ts"
+    "exports": {
+      ".": "./lib/index.js",
+      "./package.json": "./package.json"
+    }
   },
   "files": [
     "/lib/**/*"
   ],
   "engines": {
-    "node": ">=14.15.0"
+    "node": ">=18.12.0"
   },
-  "stableVersion": "3.0.0"
+  "stableVersion": "4.0.0"
 }

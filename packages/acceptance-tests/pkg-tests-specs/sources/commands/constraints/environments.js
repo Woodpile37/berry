@@ -1,5 +1,6 @@
+const {xfs} = require(`@yarnpkg/fslib`);
 const {
-  fs: {mkdirp, writeJson},
+  fs: {writeJson},
 } = require(`pkg-tests-core`);
 
 exports.environments = {
@@ -17,7 +18,7 @@ exports.environments = {
     await writeJson(`${path}/package.json`, {
       dependencies: {
         [`no-deps`]: `1.0.0`,
-        [`no-deps-bin`]: `1.0.0`,
+        [`no-deps-bins`]: `1.0.0`,
       },
     });
   },
@@ -25,7 +26,7 @@ exports.environments = {
     await writeJson(`${path}/package.json`, {
       devDependencies: {
         [`no-deps`]: `1.0.0`,
-        [`no-deps-bin`]: `1.0.0`,
+        [`no-deps-bins`]: `1.0.0`,
       },
     });
   },
@@ -33,11 +34,11 @@ exports.environments = {
     await writeJson(`${path}/package.json`, {
       dependencies: {
         [`no-deps`]: `1.0.0`,
-        [`no-deps-bin`]: `1.0.0`,
+        [`no-deps-bins`]: `1.0.0`,
       },
       devDependencies: {
         [`no-deps`]: `1.0.0`,
-        [`no-deps-bin`]: `1.0.0`,
+        [`no-deps-bins`]: `1.0.0`,
       },
     });
   },
@@ -47,18 +48,20 @@ exports.environments = {
       workspaces: [`packages/**`],
     });
 
-    await mkdirp(`${path}/packages/workspace-a`);
-    await mkdirp(`${path}/packages/workspace-b`);
+    await xfs.mkdirPromise(`${path}/packages`);
+
+    await xfs.mkdirPromise(`${path}/packages/workspace-a`);
+    await xfs.mkdirPromise(`${path}/packages/workspace-b`);
 
     await writeJson(`${path}/packages/workspace-a/package.json`, {
       name: `workspace-a`,
       dependencies: {
         [`no-deps`]: `1.0.0`,
-        [`no-deps-bin`]: `1.0.0`,
+        [`no-deps-bins`]: `1.0.0`,
       },
       devDependencies: {
         [`no-deps`]: `1.0.0`,
-        [`no-deps-bin`]: `1.0.0`,
+        [`no-deps-bins`]: `1.0.0`,
       },
     });
 
@@ -66,11 +69,11 @@ exports.environments = {
       name: `workspace-b`,
       dependencies: {
         [`no-deps`]: `1.0.0`,
-        [`no-deps-bin`]: `1.0.0`,
+        [`no-deps-bins`]: `1.0.0`,
       },
       devDependencies: {
         [`no-deps`]: `1.0.0`,
-        [`no-deps-bin`]: `1.0.0`,
+        [`no-deps-bins`]: `1.0.0`,
       },
       dependenciesMeta: {
         [`no-deps`]: {
