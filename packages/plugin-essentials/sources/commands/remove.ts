@@ -1,30 +1,25 @@
-import {BaseCommand, WorkspaceRequiredError}                    from '@yarnpkg/cli';
-import {Configuration, Cache, Descriptor, Project, formatUtils} from '@yarnpkg/core';
-import {StreamReport, Workspace, InstallMode}                   from '@yarnpkg/core';
-import {structUtils}                                            from '@yarnpkg/core';
-import {Command, Option, Usage, UsageError}                     from 'clipanion';
-import micromatch                                               from 'micromatch';
-import * as t                                                   from 'typanion';
+import {BaseCommand, WorkspaceRequiredError}                                from '@yarnpkg/cli';
+import {Configuration, Cache, Descriptor, Project, formatUtils, FormatType} from '@yarnpkg/core';
+import {StreamReport, Workspace}                                            from '@yarnpkg/core';
+import {structUtils}                                                        from '@yarnpkg/core';
+import {Command, Usage, UsageError}                                         from 'clipanion';
+import micromatch                                                           from 'micromatch';
 
-import * as suggestUtils                                        from '../suggestUtils';
-import {Hooks}                                                  from '..';
+import * as suggestUtils                                                    from '../suggestUtils';
+import {Hooks}                                                              from '..';
 
 // eslint-disable-next-line arca/no-default-export
 export default class RemoveCommand extends BaseCommand {
-  static paths = [
-    [`remove`],
-  ];
+  @Command.Boolean(`-A,--all`, {description: `Apply the operation to all workspaces from the current project`})
+  all: boolean = false;
+
+  @Command.Rest()
+  patterns: Array<string> = [];
 
   static usage: Usage = Command.Usage({
     description: `remove dependencies from the project`,
     details: `
       This command will remove the packages matching the specified patterns from the current workspace.
-
-      If the \`--mode=<mode>\` option is set, Yarn will change which artifacts are generated. The modes currently supported are:
-
-      - \`skip-build\` will not run the build scripts at all. Note that this is different from setting \`enableScripts\` to false because the latter will disable build scripts, and thus affect the content of the artifacts generated on disk, whereas the former will just disable the build step - but not the scripts themselves, which just won't run.
-
-      - \`update-lockfile\` will skip the link step altogether, and only fetch packages that are missing from the lockfile (or that have no associated checksums). This mode is typically used by tools like Renovate or Dependabot to keep a lockfile up-to-date without incurring the full install cost.
 
       This command accepts glob patterns as arguments (if valid Idents and supported by [micromatch](https://github.com/micromatch/micromatch)). Make sure to escape the patterns, to prevent your own shell from trying to expand them.
     `,
@@ -46,17 +41,7 @@ export default class RemoveCommand extends BaseCommand {
     ]],
   });
 
-  all = Option.Boolean(`-A,--all`, false, {
-    description: `Apply the operation to all workspaces from the current project`,
-  });
-
-  mode = Option.String(`--mode`, {
-    description: `Change what artifacts installs generate`,
-    validator: t.isEnum(InstallMode),
-  });
-
-  patterns = Option.Rest();
-
+  @Command.Path(`remove`)
   async execute() {
     const configuration = await Configuration.find(this.context.cwd, this.context.plugins);
     const {project, workspace} = await Project.find(configuration, this.context.cwd);
@@ -66,7 +51,7 @@ export default class RemoveCommand extends BaseCommand {
       throw new WorkspaceRequiredError(project.cwd, this.context.cwd);
 
     await project.restoreInstallState({
-      restoreResolutions: false,
+      lightResolutionFallback: false,
     });
 
     const affectedWorkspaces = this.all
@@ -85,7 +70,7 @@ export default class RemoveCommand extends BaseCommand {
     const afterWorkspaceDependencyRemovalList: Array<[
       Workspace,
       suggestUtils.Target,
-      Descriptor,
+      Descriptor
     ]> = [];
 
     for (const pattern of this.patterns) {
@@ -149,7 +134,7 @@ export default class RemoveCommand extends BaseCommand {
       : `this`;
 
     if (unreferencedPatterns.length > 0)
-      throw new UsageError(`${patterns} ${formatUtils.prettyList(configuration, unreferencedPatterns, formatUtils.Type.CODE)} ${dont} match any packages referenced by ${which} workspace`);
+      throw new UsageError(`${patterns} ${formatUtils.prettyList(configuration, unreferencedPatterns, FormatType.CODE)} ${dont} match any packages referenced by ${which} workspace`);
 
     if (hasChanged) {
       await configuration.triggerMultipleHooks(
@@ -160,8 +145,8 @@ export default class RemoveCommand extends BaseCommand {
       const report = await StreamReport.start({
         configuration,
         stdout: this.context.stdout,
-      }, async report => {
-        await project.install({cache, report, mode: this.mode});
+      }, async (report: StreamReport) => {
+        await project.install({cache, report});
       });
 
       return report.exitCode();

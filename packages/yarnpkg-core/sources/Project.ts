@@ -3,7 +3,7 @@ import {parseSyml, stringifySyml}                                 from '@yarnpkg
 import {UsageError}                                               from 'clipanion';
 import {createHash}                                               from 'crypto';
 import {structuredPatch}                                          from 'diff';
-// @ts-ignore
+// @ts-expect-error
 import Logic                                                      from 'logic-solver';
 import pLimit                                                     from 'p-limit';
 import semver                                                     from 'semver';
@@ -12,7 +12,7 @@ import v8                                                         from 'v8';
 import zlib                                                       from 'zlib';
 
 import {Cache}                                                    from './Cache';
-import {Configuration, FormatType}                                from './Configuration';
+import {Configuration}                                            from './Configuration';
 import {Fetcher}                                                  from './Fetcher';
 import {Installer, BuildDirective, BuildType}                     from './Installer';
 import {LegacyMigrationResolver}                                  from './LegacyMigrationResolver';
@@ -27,6 +27,7 @@ import {RunInstallPleaseResolver}                                 from './RunIns
 import {ThrowReport}                                              from './ThrowReport';
 import {Workspace}                                                from './Workspace';
 import {isFolderInside}                                           from './folderUtils';
+import * as formatUtils                                           from './formatUtils';
 import * as hashUtils                                             from './hashUtils';
 import * as miscUtils                                             from './miscUtils';
 import * as scriptUtils                                           from './scriptUtils';
@@ -47,6 +48,7 @@ const LOCKFILE_VERSION = 4;
 const INSTALL_STATE_VERSION = 1;
 
 const MULTIPLE_KEYS_REGEXP = / *, */g;
+const TRAILING_SLASH_REGEXP = /\/$/;
 
 const FETCHER_CONCURRENCY = 32;
 
@@ -54,13 +56,60 @@ const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
 
 export type InstallOptions = {
+  /**
+   * Instance of the cache that the project will use when packages have to be
+   * fetched. Some fetches may occur even during the resolution, for example
+   * when resolving git packages.
+   */
   cache: Cache,
+
+  /**
+   * An optional override for the default fetching pipeline. This is for
+   * overrides only - if you need to _add_ resolvers, prefer adding them
+   * through regular plugins instead.
+   */
   fetcher?: Fetcher,
+
+  /**
+   * An optional override for the default resolution pipeline. This is for
+   * overrides only - if you need to _add_ resolvers, prefer adding them
+   * through regular plugins instead.
+   */
   resolver?: Resolver
+
+  /**
+   * Provide a report instance that'll be use to store the information emitted
+   * during the install process.
+   */
   report: Report,
+
+  /**
+   * If true, Yarn will check that the lockfile won't change after the
+   * resolution step. Additionally, after the link step, Yarn will retrieve
+   * the list of files in `immutablePatterns` and check that they didn't get
+   * modified either.
+   */
   immutable?: boolean,
+
+  /**
+   * If true, Yarn will exclusively use the lockfile metadata. Setting this
+   * flag will cause it to ignore any change in the manifests, and to abort
+   * if any dependency isn't present in the lockfile.
+   */
   lockfileOnly?: boolean,
+
+  /**
+   * If true (the default), Yarn will update the workspace manifests once the
+   * install has completed.
+   */
   persistProject?: boolean,
+
+  /**
+   * If true, Yarn will skip the build step during the install. Contrary to
+   * setting the `enableScripts` setting to false, setting this won't cause
+   * the generated artifacts to change.
+   */
+  skipBuild?: boolean,
 };
 
 export class Project {
@@ -93,6 +142,8 @@ export class Project {
   public originalPackages: Map<LocatorHash, Package> = new Map();
   public optionalBuilds: Set<LocatorHash> = new Set();
 
+  public installersCustomData: Map<string, unknown> = new Map();
+
   public lockFileChecksum: string | null = null;
 
   static async find(configuration: Configuration, startingCwd: PortablePath): Promise<{project: Project, workspace: Workspace | null, locator: Locator}> {
@@ -107,7 +158,7 @@ export class Project {
     while (currentCwd !== configuration.projectCwd) {
       currentCwd = nextCwd;
 
-      if (xfs.existsSync(ppath.join(currentCwd, `package.json` as Filename))) {
+      if (xfs.existsSync(ppath.join(currentCwd, Filename.manifest))) {
         packageCwd = currentCwd;
         break;
       }
@@ -132,11 +183,11 @@ export class Project {
 
     // Otherwise, we need to ask the project (which will in turn ask the linkers for help)
     // Note: the trailing slash is caused by a quirk in the PnP implementation that requires folders to end with a trailing slash to disambiguate them from regular files
-    const locator = await project.findLocatorForLocation(`${packageCwd}/` as PortablePath);
+    const locator = await project.findLocatorForLocation(`${packageCwd}/` as PortablePath, {strict: true});
     if (locator)
       return {project, locator, workspace: null};
 
-    throw new UsageError(`The nearest package directory (${packageCwd}) doesn't seem to be part of the project declared at ${project.cwd}. If the project directory is right, it might be that you forgot to list a workspace. If it isn't, it's likely because you have a yarn.lock file at the detected location, confusing the project detection.`);
+    throw new UsageError(`The nearest package directory (${formatUtils.pretty(configuration, packageCwd, formatUtils.Type.PATH)}) doesn't seem to be part of the project declared in ${formatUtils.pretty(configuration, project.cwd, formatUtils.Type.PATH)}.\n\n- If the project directory is right, it might be that you forgot to list ${formatUtils.pretty(configuration, ppath.relative(project.cwd, packageCwd), formatUtils.Type.PATH)} as a workspace.\n- If it isn't, it's likely because you have a yarn.lock or package.json file there, confusing the project root detection.`);
   }
 
   static generateBuildStateFile(buildState: Map<LocatorHash, string>, locatorStore: Map<LocatorHash, Locator>) {
@@ -175,7 +226,7 @@ export class Project {
     this.lockFileChecksum = null;
 
     const lockfilePath = ppath.join(this.cwd, this.configuration.get(`lockfileFilename`));
-    const defaultLinkerName = this.configuration.get(`defaultLinkerName`);
+    const defaultLanguageName = this.configuration.get(`defaultLanguageName`);
 
     if (xfs.existsSync(lockfilePath)) {
       const content = await xfs.readFilePromise(lockfilePath, `utf8`);
@@ -205,7 +256,7 @@ export class Project {
 
           const version = manifest.version;
 
-          const linkerName = manifest.linkerName || defaultLinkerName;
+          const languageName = manifest.languageName || defaultLanguageName;
           const linkType = data.linkType.toUpperCase() as LinkType;
 
           const dependencies = manifest.dependencies;
@@ -225,7 +276,7 @@ export class Project {
           }
 
           if (lockfileVersion >= LOCKFILE_VERSION) {
-            const pkg: Package = {...locator, version, linkerName, linkType, dependencies, peerDependencies, dependenciesMeta, peerDependenciesMeta, bin};
+            const pkg: Package = {...locator, version, languageName, linkType, dependencies, peerDependencies, dependenciesMeta, peerDependenciesMeta, bin};
             this.originalPackages.set(pkg.locatorHash, pkg);
           }
 
@@ -308,6 +359,9 @@ export class Project {
   tryWorkspaceByCwd(workspaceCwd: PortablePath) {
     if (!ppath.isAbsolute(workspaceCwd))
       workspaceCwd = ppath.resolve(this.cwd, workspaceCwd);
+
+    workspaceCwd = ppath.normalize(workspaceCwd)
+      .replace(/\/+$/, ``) as PortablePath;
 
     const workspace = this.workspacesByCwd.get(workspaceCwd);
     if (!workspace)
@@ -510,7 +564,7 @@ export class Project {
     return dependencyMeta;
   }
 
-  async findLocatorForLocation(cwd: PortablePath) {
+  async findLocatorForLocation(cwd: PortablePath, {strict = false}: {strict?: boolean} = {}) {
     const report = new ThrowReport();
 
     const linkers = this.configuration.getLinkers();
@@ -519,6 +573,14 @@ export class Project {
     for (const linker of linkers) {
       const locator = await linker.findPackageLocator(cwd, linkerOptions);
       if (locator) {
+        // If strict mode, the specified cwd must be a package,
+        // not merely contained in a package.
+        if (strict) {
+          const location = await linker.findPackageLocation(locator, linkerOptions);
+          if (location.replace(TRAILING_SLASH_REGEXP, ``) !== cwd.replace(TRAILING_SLASH_REGEXP, ``)) {
+            continue;
+          }
+        }
         return locator;
       }
     }
@@ -972,13 +1034,19 @@ export class Project {
     const fetcher = userFetcher || this.configuration.makeFetcher();
     const fetcherOptions = {checksums: this.storedChecksums, project: this, cache, fetcher, report};
 
-    const locatorHashes = miscUtils.sortMap(this.storedResolutions.values(), [(locatorHash: LocatorHash) => {
-      const pkg = this.storedPackages.get(locatorHash);
-      if (!pkg)
-        throw new Error(`Assertion failed: The locator should have been registered`);
+    const locatorHashes = Array.from(
+      new Set(
+        miscUtils.sortMap(this.storedResolutions.values(), [
+          (locatorHash: LocatorHash) => {
+            const pkg = this.storedPackages.get(locatorHash);
+            if (!pkg)
+              throw new Error(`Assertion failed: The locator should have been registered`);
 
-      return structUtils.stringifyLocator(pkg);
-    }]);
+            return structUtils.stringifyLocator(pkg);
+          },
+        ])
+      )
+    );
 
     let firstError = false;
 
@@ -1024,7 +1092,7 @@ export class Project {
     }
   }
 
-  async linkEverything({cache, report, fetcher: optFetcher}: InstallOptions) {
+  async linkEverything({cache, report, fetcher: optFetcher, skipBuild}: InstallOptions) {
     const fetcher = optFetcher || this.configuration.makeFetcher();
     const fetcherOptions = {checksums: this.storedChecksums, project: this, cache, fetcher, report, skipIntegrityCheck: true};
 
@@ -1032,7 +1100,14 @@ export class Project {
     const linkerOptions = {project: this, report};
 
     const installers = new Map(linkers.map(linker => {
-      return [linker, linker.makeInstaller(linkerOptions)] as [Linker, Installer];
+      const installer = linker.makeInstaller(linkerOptions);
+
+      const customDataKey = installer.getCustomDataKey();
+      const customData = this.installersCustomData.get(customDataKey);
+      if (typeof customData !== `undefined`)
+        installer.attachCustomData(customData);
+
+      return [linker, installer] as [Linker, Installer];
     }));
 
     const packageLinkers: Map<LocatorHash, Linker> = new Map();
@@ -1058,7 +1133,10 @@ export class Project {
 
         try {
           for (const installer of installers.values()) {
-            await installer.installPackage(pkg, fetchResult);
+            const result = await installer.installPackage(pkg, fetchResult);
+            if (result.buildDirective !== null) {
+              throw new Error(`Assertion failed: Linkers can't return build directives for workspaces; this responsibility befalls to the Yarn core`);
+            }
           }
         } finally {
           if (fetchResult.releaseFs) {
@@ -1191,21 +1269,29 @@ export class Project {
 
     // Step 3: Inform our linkers that they should have all the info needed
 
+    const installersCustomData = new Map();
+
     for (const installer of installers.values()) {
-      const installStatuses = await installer.finalizeInstall();
-      if (installStatuses) {
-        for (const installStatus of installStatuses) {
-          if (installStatus.buildDirective) {
-            packageBuildDirectives.set(installStatus.locatorHash!, {
-              directives: installStatus.buildDirective,
-              buildLocations: installStatus.buildLocations,
-            });
-          }
-        }
+      const finalizeInstallData = await installer.finalizeInstall();
+
+      for (const installStatus of finalizeInstallData?.records ?? []) {
+        packageBuildDirectives.set(installStatus.locatorHash, {
+          directives: installStatus.buildDirective,
+          buildLocations: installStatus.buildLocations,
+        });
+      }
+
+      if (typeof finalizeInstallData?.customData !== `undefined`) {
+        installersCustomData.set(installer.getCustomDataKey(), finalizeInstallData.customData);
       }
     }
 
+    this.installersCustomData = installersCustomData;
+
     // Step 4: Build the packages in multiple steps
+
+    if (skipBuild)
+      return;
 
     const readyPackages = new Set(this.storedPackages.keys());
     const buildablePackages = new Set(packageBuildDirectives.keys());
@@ -1256,7 +1342,7 @@ export class Project {
         if (typeof dependency === `undefined`)
           throw new Error(`Assertion failed: The package should have been registered`);
 
-        builder.update(getBaseHash(pkg));
+        builder.update(getBaseHash(dependency));
       }
 
       hash = builder.digest(`hex`);
@@ -1383,7 +1469,7 @@ export class Project {
 
                 xfs.detachTemp(logDir);
 
-                const buildMessage = `${structUtils.prettyLocator(this.configuration, pkg)} couldn't be built successfully (exit code ${this.configuration.format(String(exitCode), FormatType.NUMBER)}, logs can be found here: ${this.configuration.format(logFile, FormatType.PATH)})`;
+                const buildMessage = `${structUtils.prettyLocator(this.configuration, pkg)} couldn't be built successfully (exit code ${formatUtils.pretty(this.configuration, exitCode, formatUtils.Type.NUMBER)}, logs can be found here: ${formatUtils.pretty(this.configuration, logFile, formatUtils.Type.PATH)})`;
                 report.reportInfo(MessageName.BUILD_FAILED, buildMessage);
 
                 if (this.optionalBuilds.has(pkg.locatorHash)) {
@@ -1424,7 +1510,7 @@ export class Project {
     // package (and avoid rebuilding it later if it didn't change).
 
     if (nextBState.size > 0) {
-      const bstatePath = this.configuration.get<PortablePath>(`bstatePath`);
+      const bstatePath = this.configuration.get(`bstatePath`);
       const bstateFile = Project.generateBuildStateFile(nextBState, this.storedPackages);
 
       await xfs.mkdirPromise(ppath.dirname(bstatePath), {recursive: true});
@@ -1437,13 +1523,8 @@ export class Project {
   }
 
   async install(opts: InstallOptions) {
-    const nodeLinker = this.configuration.get<string>(`nodeLinker`);
+    const nodeLinker = this.configuration.get(`nodeLinker`);
     Configuration.telemetry?.reportInstall(nodeLinker);
-
-    for (const extensions of this.configuration.packageExtensions.values())
-      for (const {descriptor, changes} of extensions)
-        for (const change of changes)
-          Configuration.telemetry?.reportPackageExtension(`${structUtils.stringifyIdent(descriptor)}:${change}`);
 
     const validationWarnings: Array<{name: MessageName, text: string}> = [];
     const validationErrors: Array<{name: MessageName, text: string}> = [];
@@ -1462,6 +1543,11 @@ export class Project {
         await this.validateEverything({validationWarnings, validationErrors, report: opts.report});
       });
     }
+
+    for (const extensionsByIdent of this.configuration.packageExtensions.values())
+      for (const [, extensionsByRange] of extensionsByIdent)
+        for (const extension of extensionsByRange)
+          extension.active = false;
 
     await opts.report.startTimerPromise(`Resolution step`, async () => {
       const lockfilePath = ppath.join(this.cwd, this.configuration.get(`lockfileFilename`));
@@ -1494,11 +1580,11 @@ export class Project {
             opts.report.reportInfo(null, `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`);
             for (const line of hunk.lines) {
               if (line.startsWith(`+`)) {
-                opts.report.reportError(MessageName.FROZEN_LOCKFILE_EXCEPTION, this.configuration.format(line, FormatType.ADDED));
+                opts.report.reportError(MessageName.FROZEN_LOCKFILE_EXCEPTION, formatUtils.pretty(this.configuration, line, formatUtils.Type.ADDED));
               } else if (line.startsWith(`-`)) {
-                opts.report.reportError(MessageName.FROZEN_LOCKFILE_EXCEPTION, this.configuration.format(line, FormatType.REMOVED));
+                opts.report.reportError(MessageName.FROZEN_LOCKFILE_EXCEPTION, formatUtils.pretty(this.configuration, line, formatUtils.Type.REMOVED));
               } else {
-                opts.report.reportInfo(null, this.configuration.format(line, `grey`));
+                opts.report.reportInfo(null, formatUtils.pretty(this.configuration, line, `grey`));
               }
             }
           }
@@ -1509,6 +1595,12 @@ export class Project {
         }
       }
     });
+
+    for (const extensionsByIdent of this.configuration.packageExtensions.values())
+      for (const [, extensionsByRange] of extensionsByIdent)
+        for (const extension of extensionsByRange)
+          if (extension.active)
+            Configuration.telemetry?.reportPackageExtension(extension.description);
 
     await opts.report.startTimerPromise(`Fetch step`, async () => {
       await this.fetchEverything(opts);
@@ -1523,7 +1615,7 @@ export class Project {
 
     await opts.report.startTimerPromise(`Link step`, async () => {
       const immutablePatterns = opts.immutable
-        ? [...new Set(this.configuration.get<Array<string>>(`immutablePatterns`))].sort()
+        ? [...new Set(this.configuration.get(`immutablePatterns`))].sort()
         : [];
 
       const before = await Promise.all(immutablePatterns.map(async pattern => {
@@ -1543,9 +1635,11 @@ export class Project {
       }
     });
 
+    await this.persistInstallStateFile();
+
     await this.configuration.triggerHook(hooks => {
       return hooks.afterAllInstalled;
-    }, this);
+    }, this, opts);
   }
 
   generateLockfile() {
@@ -1598,7 +1692,7 @@ export class Project {
         ? pkg.version
         : `0.0.0-use.local`;
 
-      manifest.linkerName = pkg.linkerName;
+      manifest.languageName = pkg.languageName;
 
       manifest.dependencies = new Map(pkg.dependencies);
       manifest.peerDependencies = new Map(pkg.peerDependencies);
@@ -1658,20 +1752,21 @@ export class Project {
   }
 
   async persistInstallStateFile() {
-    const {accessibleLocators, optionalBuilds, storedDescriptors, storedResolutions, storedPackages, lockFileChecksum} = this;
-    const installState = {accessibleLocators, optionalBuilds, storedDescriptors, storedResolutions, storedPackages, lockFileChecksum};
+    const {accessibleLocators, optionalBuilds, storedDescriptors, storedResolutions, storedPackages, installersCustomData, lockFileChecksum} = this;
+    const installState = {accessibleLocators, optionalBuilds, storedDescriptors, storedResolutions, storedPackages, installersCustomData, lockFileChecksum};
     const serializedState = await gzip(v8.serialize(installState));
 
-    const installStatePath = this.configuration.get<PortablePath>(`installStatePath`);
+    const installStatePath = this.configuration.get(`installStatePath`);
 
     await xfs.mkdirPromise(ppath.dirname(installStatePath), {recursive: true});
-    await xfs.writeFilePromise(installStatePath, serializedState as Buffer);
+    await xfs.changeFilePromise(installStatePath, serializedState as Buffer);
   }
 
-  async restoreInstallState() {
-    const installStatePath = this.configuration.get<PortablePath>(`installStatePath`);
+  async restoreInstallState({lightResolutionFallback = true}: {lightResolutionFallback?: boolean} = {}) {
+    const installStatePath = this.configuration.get(`installStatePath`);
     if (!xfs.existsSync(installStatePath)) {
-      await this.applyLightResolution();
+      if (lightResolutionFallback)
+        await this.applyLightResolution();
       return;
     }
 
@@ -1679,7 +1774,8 @@ export class Project {
     const installState = v8.deserialize(await gunzip(serializedState) as Buffer);
 
     if (installState.lockFileChecksum !== this.lockFileChecksum) {
-      await this.applyLightResolution();
+      if (lightResolutionFallback)
+        await this.applyLightResolution();
       return;
     }
 
@@ -1726,9 +1822,9 @@ export class Project {
         continue;
 
       if (cache.immutable) {
-        report.reportError(MessageName.IMMUTABLE_CACHE, `${this.configuration.format(ppath.basename(entryPath), `magenta`)} appears to be unused and would marked for deletion, but the cache is immutable`);
+        report.reportError(MessageName.IMMUTABLE_CACHE, `${formatUtils.pretty(this.configuration, ppath.basename(entryPath), `magenta`)} appears to be unused and would marked for deletion, but the cache is immutable`);
       } else {
-        report.reportInfo(MessageName.UNUSED_CACHE_ENTRY, `${this.configuration.format(ppath.basename(entryPath), `magenta`)} appears to be unused - removing`);
+        report.reportInfo(MessageName.UNUSED_CACHE_ENTRY, `${formatUtils.pretty(this.configuration, ppath.basename(entryPath), `magenta`)} appears to be unused - removing`);
         await xfs.removePromise(entryPath);
       }
     }
@@ -2043,16 +2139,25 @@ function applyVirtualResolutionMutations({
         // We take all the dependencies from the new virtual instance and
         // generate a hash from it. By checking if this hash is already
         // registered, we know whether we can trim the new version.
-        const dependencyHash = hashUtils.makeHash(...[...virtualPackage.dependencies.values()].map(descriptor => {
-          const resolution = descriptor.range !== `missing:`
-            ? allResolutions.get(descriptor.descriptorHash)
-            : `missing:`;
+        const dependencyHash = hashUtils.makeHash(
+          ...[...virtualPackage.dependencies.values()].map(descriptor => {
+            const resolution = descriptor.range !== `missing:`
+              ? allResolutions.get(descriptor.descriptorHash)
+              : `missing:`;
 
-          if (typeof resolution === `undefined`)
-            throw new Error(`Assertion failed: Expected the resolution for ${structUtils.prettyDescriptor(project.configuration, descriptor)} to have been registered`);
+            if (typeof resolution === `undefined`)
+              throw new Error(`Assertion failed: Expected the resolution for ${structUtils.prettyDescriptor(project.configuration, descriptor)} to have been registered`);
 
-          return resolution;
-        }));
+            return resolution;
+          }),
+          // We use the identHash to disambiguate between virtual descriptors
+          // with different base idents being resolved to the same virtual package.
+          // Note: We don't use the descriptorHash because the whole point of duplicate
+          // virtual descriptors is that they have different `virtual:` ranges.
+          // This causes the virtual descriptors with different base idents
+          // to be preserved, while the virtual package they resolve to gets deduped.
+          virtualDescriptor.identHash,
+        );
 
         const masterDescriptor = otherVirtualInstances.get(dependencyHash);
         if (typeof masterDescriptor === `undefined`) {

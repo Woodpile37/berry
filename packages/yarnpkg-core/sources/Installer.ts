@@ -1,37 +1,24 @@
-import {PortablePath}                 from '@yarnpkg/fslib';
+import {PortablePath}                              from '@yarnpkg/fslib';
 
-import {FetchResult}                  from './Fetcher';
-import {Report}                       from './Report';
-import {Descriptor, Locator, Package} from './types';
+import {FetchResult}                               from './Fetcher';
+import {Descriptor, Locator, Package, LocatorHash} from './types';
 
-export enum BuildDirectiveType {
+export enum BuildType {
   SCRIPT = 0,
   SHELLCODE = 1,
 }
 
-export type BuildDirective = {
-  type: BuildDirectiveType;
-  script: string;
-};
-
-export type BuildRequest = {
-  skipped: false;
-  directives: Array<BuildDirective>;
-} | {
-  skipped: true;
-  explain: (report: Report) => void;
-};
+export type BuildDirective = [BuildType, string];
 
 export type InstallStatus = {
-  packageLocation: PortablePath | null;
-  buildRequest: BuildRequest | null;
-  installPromise?: Promise<void>;
+  packageLocation: PortablePath | null,
+  buildDirective: Array<BuildDirective> | null,
 };
 
 export type FinalizeInstallStatus = {
-  locator: Locator;
-  buildLocations: Array<PortablePath>;
-  buildRequest: BuildRequest;
+  locatorHash: LocatorHash,
+  buildLocations: Array<PortablePath>,
+  buildDirective: Array<BuildDirective>,
 };
 
 export type FinalizeInstallData = {
@@ -43,7 +30,7 @@ export type FinalizeInstallData = {
    * replicate the hoisting that would happen with the node-modules linking
    * strategy.
    */
-  records?: Array<FinalizeInstallStatus>;
+  records?: Array<FinalizeInstallStatus>,
 
   /**
    * A set of data that are preserved from one install to the next. Linkers are
@@ -64,25 +51,16 @@ export type FinalizeInstallData = {
   customData?: any;
 };
 
-export type InstallPackageExtraApi = {
-  /**
-   * The core reclaims the virtual filesystem by default when the
-   * `installPackage` function returns. This may be annoying when working on
-   * parallel installers, since `installPackage` are guaranteed to work
-   * sequentially (and thus no two packages could be installed at the same
-   * time, since one's fs would be closed as soon as the second would start).
-   *
-   * To avoid that, you can call the `holdFetchResult` function from this extra
-   * API to indicate to the core that it shouldn't reclaim the filesystem until
-   * the API passed in parameter as finished executing. Note that this may lead
-   * to higher memory consumption (since multiple packages may be kept in
-   * memory), so you'll need to implement an upper bound to the number of
-   * concurrent package installs.
-   */
-  holdFetchResult: (promise: Promise<void>) => void;
-};
-
 export interface Installer {
+  /**
+   * Return an arbitrary key.
+   *
+   * This key will be used to save and restore the installer's custom data. You
+   * typically will want to return the installer's name, but you can be fancy
+   * and send a stringified JSON payload that include the cache version, etc.
+   */
+  getCustomDataKey(): string;
+
   /**
    * Only called if the installer has a custom data key matching one currently
    * stored. Will be called with whatever `finalizeInstall` returned in its
@@ -105,9 +83,8 @@ export interface Installer {
    *
    * @param pkg The package being installed
    * @param fetchResult The fetched information about the package
-   * @param api An additional API one can use to interact with the core
    */
-  installPackage(pkg: Package, fetchResult: FetchResult, api: InstallPackageExtraApi): Promise<InstallStatus>;
+  installPackage(pkg: Package, fetchResult: FetchResult): Promise<InstallStatus>;
 
   /**
    * Link a package and its internal (same-linker) dependencies.
@@ -139,5 +116,5 @@ export interface Installer {
   /**
    * Finalize the install by writing miscellaneous files to the disk.
    */
-  finalizeInstall(): Promise<FinalizeInstallData | void | undefined>;
+  finalizeInstall(): Promise<FinalizeInstallData | undefined>;
 }
