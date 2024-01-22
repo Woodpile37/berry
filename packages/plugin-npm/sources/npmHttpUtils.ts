@@ -1,22 +1,10 @@
-<<<<<<< HEAD
-import {Configuration, Ident, formatUtils, httpUtils} from '@yarnpkg/core';
-import {MessageName, ReportError}                     from '@yarnpkg/core';
-import {prompt}                                       from 'enquirer';
-import {URL}                                          from 'url';
+import {Configuration, Ident, httpUtils, EnhancedError, formatUtils} from '@yarnpkg/core';
+import {MessageName, ReportError}                                    from '@yarnpkg/core';
+import {prompt}                                                      from 'enquirer';
+import {URL}                                                         from 'url';
 
-import {Hooks}                                        from './index';
-import * as npmConfigUtils                            from './npmConfigUtils';
-import {MapLike}                                      from './npmConfigUtils';
-=======
-import {Configuration, Ident, httpUtils, nodeUtils, StreamReport, formatUtils} from '@yarnpkg/core';
-import {MessageName, ReportError}                                              from '@yarnpkg/core';
-import {prompt}                                                                from 'enquirer';
-import {URL}                                                                   from 'url';
-
-import {Hooks}                                                                 from './index';
-import * as npmConfigUtils                                                     from './npmConfigUtils';
-import {MapLike}                                                               from './npmConfigUtils';
->>>>>>> upstream/cherry-pick/next-release
+import * as npmConfigUtils                                           from './npmConfigUtils';
+import {MapLike}                                                     from './npmConfigUtils';
 
 export enum AuthType {
   NO_AUTH,
@@ -25,46 +13,39 @@ export enum AuthType {
   ALWAYS_AUTH,
 }
 
+type AuthOptions = {
+  authType?: AuthType,
+};
+
 type RegistryOptions = {
-  ident: Ident;
-  registry?: string;
+  ident: Ident,
+  registry?: string,
 } | {
-  ident?: Ident;
+  ident?: Ident,
   registry: string;
 };
 
-export type Options = httpUtils.Options & RegistryOptions & {
-  authType?: AuthType;
-  otp?: string;
-};
+export type Options = httpUtils.Options & AuthOptions & RegistryOptions;
 
 /**
- * Consumes all 401 Unauthorized errors and reports them as `AUTHENTICATION_INVALID`.
+ * Enhance all errors to include the whoami.
  *
- * It doesn't handle 403 Forbidden, as the npm registry uses it when the user attempts
+ * Reports all 401 Unauthorized errors as `AUTHENTICATION_INVALID`.
+ *
+ * It doesn't report 403 Forbidden as `AUTHENTICATION_INVALID`, as the npm registry uses it when the user attempts
  * a prohibited action, such as publishing a package with a similar name to an existing package.
  */
-export async function handleInvalidAuthenticationError(error: any, {attemptedAs, registry, headers, configuration}: {attemptedAs?: string, registry: string, headers: {[key: string]: string} | undefined, configuration: Configuration}) {
-  if (isOtpError(error))
-    throw new ReportError(MessageName.AUTHENTICATION_INVALID, `Invalid OTP token`);
+export async function enhanceNpmRequestError(error: any, {attemptedAs, registry, headers, configuration}: {attemptedAs?: string, registry: string, headers: {[key: string]: string} | undefined, configuration: Configuration}) {
+  const enhancedError = new EnhancedError(error, {
+    fields: [
+      {label: `${typeof attemptedAs === `string` ? `Attempted` : `Authenticated`} as`, value: formatUtils.tuple(formatUtils.Type.NO_HINT, attemptedAs ?? await whoami(registry, headers, {configuration}))},
+    ],
+  }, configuration);
 
-  if (error.originalError?.name === `HTTPError` && error.originalError?.response.statusCode === 401) {
-    throw new ReportError(MessageName.AUTHENTICATION_INVALID, `Invalid authentication (${typeof attemptedAs !== `string` ? `as ${await whoami(registry, headers, {configuration})}` : `attempted as ${attemptedAs}`})`);
-  }
-}
+  if (error.name === `HTTPError` && error.response?.statusCode === 401)
+    return new ReportError(MessageName.AUTHENTICATION_INVALID, new EnhancedError(enhancedError, {summary: `Invalid authentication`}));
 
-export function customPackageError(error: httpUtils.RequestError, configuration: Configuration) {
-  const statusCode = error.response?.statusCode;
-  if (!statusCode)
-    return null;
-
-  if (statusCode === 404)
-    return `Package not found`;
-
-  if (statusCode >= 500 && statusCode < 600)
-    return `The registry appears to be down (using a ${formatUtils.applyHyperlink(configuration, `local cache`, `https://yarnpkg.com/advanced/lexicon#local-cache`)} might have protected you against such outages)`;
-
-  return null;
+  return enhancedError;
 }
 
 export function getIdentUrl(ident: Ident) {
@@ -84,150 +65,123 @@ export async function get(path: string, {configuration, headers, ident, authType
   if (typeof registry !== `string`)
     throw new Error(`Assertion failed: The registry should be a string`);
 
-  const auth = await getAuthenticationHeader(registry, {authType, configuration, ident});
+  const auth = getAuthenticationHeader(registry, {authType, configuration, ident});
   if (auth)
     headers = {...headers, authorization: auth};
 
+  let url;
   try {
-    return await httpUtils.get(path.charAt(0) === `/` ? `${registry}${path}` : path, {configuration, headers, ...rest});
-  } catch (error) {
-    await handleInvalidAuthenticationError(error, {registry, configuration, headers});
+    url = new URL(path);
+  } catch (e) {
+    url = new URL(registry + path);
+  }
 
-    throw error;
+  try {
+    return await httpUtils.get(url.href, {configuration, headers, ...rest});
+  } catch (error) {
+    throw await enhanceNpmRequestError(error, {registry, configuration, headers});
   }
 }
 
-export async function post(path: string, body: httpUtils.Body, {attemptedAs, configuration, headers, ident, authType = AuthType.ALWAYS_AUTH, registry, otp, ...rest}: Options & {attemptedAs?: string}) {
+export async function post(path: string, body: httpUtils.Body, {attemptedAs, configuration, headers, ident, authType = AuthType.ALWAYS_AUTH, registry, ...rest}: Options & {attemptedAs?: string}) {
   if (ident && typeof registry === `undefined`)
     registry = npmConfigUtils.getScopeRegistry(ident.scope, {configuration});
 
   if (typeof registry !== `string`)
     throw new Error(`Assertion failed: The registry should be a string`);
 
-  const auth = await getAuthenticationHeader(registry, {authType, configuration, ident});
+  const auth = getAuthenticationHeader(registry, {authType, configuration, ident});
   if (auth)
     headers = {...headers, authorization: auth};
-  if (otp)
-    headers = {...headers, ...getOtpHeaders(otp)};
 
   try {
     return await httpUtils.post(registry + path, body, {configuration, headers, ...rest});
   } catch (error) {
-    if (!isOtpError(error) || otp) {
-      await handleInvalidAuthenticationError(error, {attemptedAs, registry, configuration, headers});
+    if (!isOtpError(error))
+      throw await enhanceNpmRequestError(error, {attemptedAs, registry, configuration, headers});
 
-      throw error;
-    }
 
-    otp = await askForOtp(error, {configuration});
+    const otp = await askForOtp();
     const headersWithOtp = {...headers, ...getOtpHeaders(otp)};
 
     // Retrying request with OTP
     try {
       return await httpUtils.post(`${registry}${path}`, body, {configuration, headers: headersWithOtp, ...rest});
     } catch (error) {
-      await handleInvalidAuthenticationError(error, {attemptedAs, registry, configuration, headers});
-
-      throw error;
+      throw await enhanceNpmRequestError(error, {attemptedAs, registry, configuration, headers: headersWithOtp});
     }
   }
 }
 
-export async function put(path: string, body: httpUtils.Body, {attemptedAs, configuration, headers, ident, authType = AuthType.ALWAYS_AUTH, registry, otp, ...rest}: Options & {attemptedAs?: string}) {
+export async function put(path: string, body: httpUtils.Body, {attemptedAs, configuration, headers, ident, authType = AuthType.ALWAYS_AUTH, registry, ...rest}: Options & {attemptedAs?: string}) {
   if (ident && typeof registry === `undefined`)
     registry = npmConfigUtils.getScopeRegistry(ident.scope, {configuration});
 
   if (typeof registry !== `string`)
     throw new Error(`Assertion failed: The registry should be a string`);
 
-  const auth = await getAuthenticationHeader(registry, {authType, configuration, ident});
+  const auth = getAuthenticationHeader(registry, {authType, configuration, ident});
   if (auth)
     headers = {...headers, authorization: auth};
-  if (otp)
-    headers = {...headers, ...getOtpHeaders(otp)};
 
   try {
     return await httpUtils.put(registry + path, body, {configuration, headers, ...rest});
   } catch (error) {
-    if (!isOtpError(error)) {
-      await handleInvalidAuthenticationError(error, {attemptedAs, registry, configuration, headers});
+    if (!isOtpError(error))
+      throw await enhanceNpmRequestError(error, {attemptedAs, registry, configuration, headers});
 
-      throw error;
-    }
-
-    otp = await askForOtp(error, {configuration});
+    const otp = await askForOtp();
     const headersWithOtp = {...headers, ...getOtpHeaders(otp)};
 
     // Retrying request with OTP
     try {
       return await httpUtils.put(`${registry}${path}`, body, {configuration, headers: headersWithOtp, ...rest});
     } catch (error) {
-      await handleInvalidAuthenticationError(error, {attemptedAs, registry, configuration, headers});
-
-      throw error;
+      throw await enhanceNpmRequestError(error, {attemptedAs, registry, configuration, headers: headersWithOtp});
     }
   }
 }
 
-export async function del(path: string, {attemptedAs, configuration, headers, ident, authType = AuthType.ALWAYS_AUTH, registry, otp, ...rest}: Options & {attemptedAs?: string}) {
+export async function del(path: string, {attemptedAs, configuration, headers, ident, authType = AuthType.ALWAYS_AUTH, registry, ...rest}: Options & {attemptedAs?: string}) {
   if (ident && typeof registry === `undefined`)
     registry = npmConfigUtils.getScopeRegistry(ident.scope, {configuration});
 
   if (typeof registry !== `string`)
     throw new Error(`Assertion failed: The registry should be a string`);
 
-  const auth = await getAuthenticationHeader(registry, {authType, configuration, ident});
+  const auth = getAuthenticationHeader(registry, {authType, configuration, ident});
   if (auth)
     headers = {...headers, authorization: auth};
-  if (otp)
-    headers = {...headers, ...getOtpHeaders(otp)};
 
   try {
     return await httpUtils.del(registry + path, {configuration, headers, ...rest});
   } catch (error) {
-    if (!isOtpError(error) || otp) {
-      await handleInvalidAuthenticationError(error, {attemptedAs, registry, configuration, headers});
+    if (!isOtpError(error))
+      throw await enhanceNpmRequestError(error, {attemptedAs, registry, configuration, headers});
 
-      throw error;
-    }
-
-    otp = await askForOtp(error, {configuration});
+    const otp = await askForOtp();
     const headersWithOtp = {...headers, ...getOtpHeaders(otp)};
 
     // Retrying request with OTP
     try {
       return await httpUtils.del(`${registry}${path}`, {configuration, headers: headersWithOtp, ...rest});
     } catch (error) {
-      await handleInvalidAuthenticationError(error, {attemptedAs, registry, configuration, headers});
-
-      throw error;
+      throw await enhanceNpmRequestError(error, {attemptedAs, registry, configuration, headers: headersWithOtp});
     }
   }
 }
 
-async function getAuthenticationHeader(registry: string, {authType = AuthType.CONFIGURATION, configuration, ident}: {authType?: AuthType, configuration: Configuration, ident: RegistryOptions['ident']}) {
+function getAuthenticationHeader(registry: string, {authType = AuthType.CONFIGURATION, configuration, ident}: {authType?: AuthType, configuration: Configuration, ident: RegistryOptions['ident']}) {
   const effectiveConfiguration = npmConfigUtils.getAuthConfiguration(registry, {configuration, ident});
   const mustAuthenticate = shouldAuthenticate(effectiveConfiguration, authType);
 
   if (!mustAuthenticate)
     return null;
 
-  const header = await configuration.reduceHook((hooks: Hooks) => {
-    return hooks.getNpmAuthenticationHeader;
-  }, undefined, registry, {configuration, ident});
-
-  if (header)
-    return header;
-
   if (effectiveConfiguration.get(`npmAuthToken`))
     return `Bearer ${effectiveConfiguration.get(`npmAuthToken`)}`;
-
-  if (effectiveConfiguration.get(`npmAuthIdent`)) {
-    const npmAuthIdent = effectiveConfiguration.get(`npmAuthIdent`);
-    if (npmAuthIdent.includes(`:`))
-      return `Basic ${Buffer.from(npmAuthIdent).toString(`base64`)}`;
-    return `Basic ${npmAuthIdent}`;
-  }
+  if (effectiveConfiguration.get(`npmAuthIdent`))
+    return `Basic ${effectiveConfiguration.get(`npmAuthIdent`)}`;
 
   if (mustAuthenticate && authType !== AuthType.BEST_EFFORT) {
     throw new ReportError(MessageName.AUTHENTICATION_NOT_FOUND, `No authentication configured for request`);
@@ -270,44 +224,9 @@ async function whoami(registry: string, headers: {[key: string]: string} | undef
   }
 }
 
-async function askForOtp(error: any, {configuration}: {configuration: Configuration}) {
-  const notice = error.originalError?.response.headers[`npm-notice`];
-
-  if (notice) {
-    await StreamReport.start({
-      configuration,
-      stdout: process.stdout,
-      includeFooter: false,
-    }, async report => {
-      report.reportInfo(MessageName.UNNAMED, notice.replace(/(https?:\/\/\S+)/g, formatUtils.pretty(configuration, `$1`, formatUtils.Type.URL)));
-
-      if (!process.env.YARN_IS_TEST_ENV) {
-        const autoOpen = notice.match(/open (https?:\/\/\S+)/i);
-        if (autoOpen && nodeUtils.openUrl) {
-          const {openNow} = await prompt<{openNow: boolean}>({
-            type: `confirm`,
-            name: `openNow`,
-            message: `Do you want to try to open this url now?`,
-            required: true,
-            initial: true,
-            onCancel: () => process.exit(130),
-          });
-
-          if (openNow) {
-            if (!await nodeUtils.openUrl(autoOpen[1])) {
-              report.reportSeparator();
-              report.reportWarning(MessageName.UNNAMED, `We failed to automatically open the url; you'll have to open it yourself in your browser of choice.`);
-            }
-          }
-        }
-      }
-    });
-
-    process.stdout.write(`\n`);
-  }
-
-  if (process.env.YARN_IS_TEST_ENV)
-    return process.env.YARN_INJECT_NPM_2FA_TOKEN || ``;
+async function askForOtp() {
+  if (process.env.TEST_ENV)
+    return process.env.TEST_NPM_2FA_TOKEN || ``;
 
   const {otp} = await prompt<{otp: string}>({
     type: `password`,
@@ -317,17 +236,15 @@ async function askForOtp(error: any, {configuration}: {configuration: Configurat
     onCancel: () => process.exit(130),
   });
 
-  process.stdout.write(`\n`);
-
   return otp;
 }
 
 function isOtpError(error: any) {
-  if (error.originalError?.name !== `HTTPError`)
+  if (error.name !== `HTTPError`)
     return false;
 
   try {
-    const authMethods = error.originalError?.response.headers[`www-authenticate`].split(/,\s*/).map((s: string) => s.toLowerCase());
+    const authMethods = error.response.headers[`www-authenticate`].split(/,\s*/).map((s: string) => s.toLowerCase());
     return authMethods.includes(`otp`);
   } catch (e) {
     return false;

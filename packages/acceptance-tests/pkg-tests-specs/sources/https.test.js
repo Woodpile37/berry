@@ -1,7 +1,9 @@
 const {
   fs: {writeFile},
-  tests: {startPackageServer, getHttpsCertificates, validLogins},
+  tests: {startPackageServer, getHttpsCertificates},
 } = require(`pkg-tests-core`);
+
+const AUTH_TOKEN = `686159dc-64b3-413e-a244-2de2b8d1c36f`;
 
 describe(`Https tests`, () => {
   test(
@@ -17,16 +19,16 @@ describe(`Https tests`, () => {
           `npmScopes:`,
           `  private:`,
           `    npmRegistryServer: "${url}"`,
-          `    npmAuthToken: ${validLogins.fooUser.npmAuthToken}`,
+          `    npmAuthToken: ${AUTH_TOKEN}`,
         ].join(`\n`));
 
-        await expect(run(`install`)).rejects.toThrow(/RequestError: self(-| )signed certificate/);
+        await expect(run(`install`)).rejects.toThrow(`self signed certificate`);
       },
     ),
   );
 
   test(
-    `it should install when providing valid CA certificate via root httpsCaFilePath`,
+    `it should install when providing valid CA certificate via root caFilePath`,
     makeTemporaryEnv(
       {
         dependencies: {[`@private/package`]: `1.0.0`},
@@ -37,11 +39,11 @@ describe(`Https tests`, () => {
 
         await writeFile(`${path}/rootCA.crt`, certs.ca.certificate);
         await writeFile(`${path}/.yarnrc.yml`, [
-          `httpsCaFilePath: ${path}/rootCA.crt`,
+          `caFilePath: ${path}/rootCA.crt`,
           `npmScopes:`,
           `  private:`,
           `    npmRegistryServer: "${url}"`,
-          `    npmAuthToken: ${validLogins.fooUser.npmAuthToken}`,
+          `    npmAuthToken: ${AUTH_TOKEN}`,
         ].join(`\n`));
 
         await run(`install`);
@@ -68,11 +70,11 @@ describe(`Https tests`, () => {
         await writeFile(`${path}/.yarnrc.yml`, [
           `networkSettings:`,
           `  "*":`,
-          `    httpsCaFilePath: ${path}/rootCA.crt`,
+          `    caFilePath: ${path}/rootCA.crt`,
           `npmScopes:`,
           `  private:`,
           `    npmRegistryServer: "${url}"`,
-          `    npmAuthToken: ${validLogins.fooUser.npmAuthToken}`,
+          `    npmAuthToken: ${AUTH_TOKEN}`,
         ].join(`\n`));
 
         await run(`install`);
@@ -99,11 +101,11 @@ describe(`Https tests`, () => {
         await writeFile(`${path}/.yarnrc.yml`, [
           `networkSettings:`,
           `  "localhost":`,
-          `    httpsCaFilePath: ${path}/rootCA.crt`,
+          `    caFilePath: ${path}/rootCA.crt`,
           `npmScopes:`,
           `  private:`,
           `    npmRegistryServer: "${url}"`,
-          `    npmAuthToken: ${validLogins.fooUser.npmAuthToken}`,
+          `    npmAuthToken: ${AUTH_TOKEN}`,
         ].join(`\n`));
 
         await run(`install`);
@@ -130,14 +132,14 @@ describe(`Https tests`, () => {
         await writeFile(`${path}/.yarnrc.yml`, [
           `networkSettings:`,
           `  "foo":`,
-          `    httpsCaFilePath: ${path}/rootCA.crt`,
+          `    caFilePath: ${path}/rootCA.crt`,
           `npmScopes:`,
           `  private:`,
           `    npmRegistryServer: "${url}"`,
-          `    npmAuthToken: ${validLogins.fooUser.npmAuthToken}`,
+          `    npmAuthToken: ${AUTH_TOKEN}`,
         ].join(`\n`));
 
-        await expect(run(`install`)).rejects.toThrow(/RequestError: self(-| )signed certificate/);
+        await expect(run(`install`)).rejects.toThrow(`self signed certificate`);
       },
     ),
   );
@@ -152,11 +154,11 @@ describe(`Https tests`, () => {
         const url = await startPackageServer({type: `https`});
 
         await writeFile(`${path}/.yarnrc.yml`, [
-          `httpsCaFilePath: ${path}/missing.crt`,
+          `caFilePath: ${path}/missing.crt`,
           `npmScopes:`,
           `  private:`,
           `    npmRegistryServer: "${url}"`,
-          `    npmAuthToken: ${validLogins.fooUser.npmAuthToken}`,
+          `    npmAuthToken: ${AUTH_TOKEN}`,
         ].join(`\n`));
 
         await expect(run(`install`)).rejects.toThrow(`ENOENT: no such file or directory`);
@@ -178,7 +180,7 @@ describe(`Https tests`, () => {
           `npmScopes:`,
           `  private:`,
           `    npmRegistryServer: "${url}"`,
-          `    npmAuthToken: ${validLogins.fooUser.npmAuthToken}`,
+          `    npmAuthToken: ${AUTH_TOKEN}`,
         ].join(`\n`));
 
         await run(`install`);

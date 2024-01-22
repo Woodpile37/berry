@@ -1,8 +1,8 @@
-import {BaseCommand, openWorkspace}   from '@yarnpkg/cli';
-import {Configuration, MessageName}   from '@yarnpkg/core';
-import {StreamReport, structUtils}    from '@yarnpkg/core';
-import {npmConfigUtils, npmHttpUtils} from '@yarnpkg/plugin-npm';
-import {Command, Option, Usage}       from 'clipanion';
+import {BaseCommand, openWorkspace}                from '@yarnpkg/cli';
+import {Configuration, EnhancedError, MessageName} from '@yarnpkg/core';
+import {StreamReport, structUtils}                 from '@yarnpkg/core';
+import {npmConfigUtils, npmHttpUtils}              from '@yarnpkg/plugin-npm';
+import {Command, Option, Usage}                    from 'clipanion';
 
 // eslint-disable-next-line arca/no-default-export
 export default class NpmWhoamiCommand extends BaseCommand {
@@ -54,25 +54,25 @@ export default class NpmWhoamiCommand extends BaseCommand {
       configuration,
       stdout: this.context.stdout,
     }, async report => {
-      let response;
       try {
-        response = await npmHttpUtils.get(`/-/whoami`, {
+        const response = await npmHttpUtils.get(`/-/whoami`, {
           configuration,
           registry,
           authType: npmHttpUtils.AuthType.ALWAYS_AUTH,
           jsonResponse: true,
           ident: this.scope ? structUtils.makeIdent(this.scope, ``) : undefined,
         });
+
+        report.reportInfo(MessageName.UNNAMED, response.username);
       } catch (err) {
-        if (err.response?.statusCode === 401 || err.response?.statusCode === 403) {
-          report.reportError(MessageName.AUTHENTICATION_INVALID, `Authentication failed - your credentials may have expired`);
-          return;
-        } else {
+        if (err.name !== `HTTPError`) {
           throw err;
+        } else if (err.response.statusCode === 401 || err.response.statusCode === 403) {
+          report.reportError(MessageName.AUTHENTICATION_INVALID, new EnhancedError(err, {summary: `Authentication failed - your credentials may have expired`}).toString());
+        } else {
+          report.reportError(MessageName.AUTHENTICATION_INVALID, err.toString());
         }
       }
-
-      report.reportInfo(MessageName.UNNAMED, response.username);
     });
 
     return report.exitCode();

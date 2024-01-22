@@ -1,23 +1,18 @@
-import {PortablePath, xfs}                       from '@yarnpkg/fslib';
-import type {ExtendOptions, RequestError}        from 'got';
-import {Agent as HttpsAgent}                     from 'https';
-import {Agent as HttpAgent, IncomingHttpHeaders} from 'http';
-import micromatch                                from 'micromatch';
-import tunnel, {ProxyOptions}                    from 'tunnel';
-import {URL}                                     from 'url';
+import {PortablePath, xfs}                                   from '@yarnpkg/fslib';
+import {ExtendOptions, RequestError, Response, TimeoutError} from 'got';
+import {Agent as HttpsAgent}                                 from 'https';
+import {Agent as HttpAgent}                                  from 'http';
+import micromatch                                            from 'micromatch';
+import tunnel, {ProxyOptions}                                from 'tunnel';
+import {URL}                                                 from 'url';
 
-import {ConfigurationValueMap, Configuration}    from './Configuration';
-import {MessageName}                             from './MessageName';
-import {WrapNetworkRequestInfo}                  from './Plugin';
-import {ReportError}                             from './Report';
-import * as formatUtils                          from './formatUtils';
-import {MapValue, MapValueToObjectValue}         from './miscUtils';
-import * as miscUtils                            from './miscUtils';
+import {Configuration, ConfigurationValueMap}                from './Configuration';
+import {EnhancedError}                                       from './EnhancedError';
+import * as formatUtils                                      from './formatUtils';
+import {MapValue, MapValueToObjectValue}                     from './miscUtils';
 
-export type {RequestError}                                   from 'got';
-
-const cache = new Map<string, any>();
-const fileCache = new Map<PortablePath, Promise<Buffer> | Buffer>();
+const cache = new Map<string, Promise<Buffer> | Buffer>();
+const certCache = new Map<PortablePath, Promise<Buffer> | Buffer>();
 
 const globalHttpAgent = new HttpAgent({keepAlive: true});
 const globalHttpsAgent = new HttpsAgent({keepAlive: true});
@@ -29,92 +24,27 @@ function parseProxy(specifier: string) {
   if (url.port)
     proxy.port = Number(url.port);
 
-  if (url.username && url.password)
-    proxy.proxyAuth = `${url.username}:${url.password}`;
-
   return {proxy};
 }
 
-async function getCachedFile(filePath: PortablePath) {
-  return miscUtils.getFactoryWithDefault(fileCache, filePath, () => {
-    return xfs.readFilePromise(filePath).then(file => {
-      fileCache.set(filePath, file);
-      return file;
+async function getCachedCertificate(caFilePath: PortablePath) {
+  let certificate = certCache.get(caFilePath);
+
+  if (!certificate) {
+    certificate = xfs.readFilePromise(caFilePath).then(cert => {
+      certCache.set(caFilePath, cert);
+      return cert;
     });
-  });
-}
-
-function prettyResponseCode({statusCode, statusMessage}: Response, configuration: Configuration) {
-  const prettyStatusCode = formatUtils.pretty(configuration, statusCode, formatUtils.Type.NUMBER);
-  const href = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${statusCode}`;
-
-  return formatUtils.applyHyperlink(configuration, `${prettyStatusCode}${statusMessage ? ` (${statusMessage})` : ``}`, href);
-}
-
-async function prettyNetworkError(response: Promise<Response>, {configuration, customErrorMessage}: {configuration: Configuration, customErrorMessage?: (err: RequestError, configuration: Configuration) => string | null}) {
-  try {
-    return await response;
-  } catch (err) {
-    if (err.name !== `HTTPError`)
-      throw err;
-
-    let message = customErrorMessage?.(err, configuration) ?? err.response.body?.error;
-
-    if (message == null) {
-      if (err.message.startsWith(`Response code`)) {
-        message = `The remote server failed to provide the requested resource`;
-      } else {
-        message = err.message;
-      }
-    }
-
-    if (err.code === `ETIMEDOUT` && err.event === `socket`)
-      message += `(can be increased via ${formatUtils.pretty(configuration, `httpTimeout`, formatUtils.Type.SETTING)})`;
-
-    const networkError = new ReportError(MessageName.NETWORK_ERROR, message, report => {
-      if (err.response) {
-        report.reportError(MessageName.NETWORK_ERROR, `  ${formatUtils.prettyField(configuration, {
-          label: `Response Code`,
-          value: formatUtils.tuple(formatUtils.Type.NO_HINT, prettyResponseCode(err.response, configuration)),
-        })}`);
-      }
-
-      if (err.request) {
-        report.reportError(MessageName.NETWORK_ERROR, `  ${formatUtils.prettyField(configuration, {
-          label: `Request Method`,
-          value: formatUtils.tuple(formatUtils.Type.NO_HINT, err.request.options.method),
-        })}`);
-
-        report.reportError(MessageName.NETWORK_ERROR, `  ${formatUtils.prettyField(configuration, {
-          label: `Request URL`,
-          value: formatUtils.tuple(formatUtils.Type.URL, err.request.requestUrl),
-        })}`);
-      }
-
-      if (err.request.redirects.length > 0) {
-        report.reportError(MessageName.NETWORK_ERROR, `  ${formatUtils.prettyField(configuration, {
-          label: `Request Redirects`,
-          value: formatUtils.tuple(formatUtils.Type.NO_HINT, formatUtils.prettyList(configuration, err.request.redirects, formatUtils.Type.URL)),
-        })}`);
-      }
-
-      if (err.request.retryCount === err.request.options.retry.limit) {
-        report.reportError(MessageName.NETWORK_ERROR, `  ${formatUtils.prettyField(configuration, {
-          label: `Request Retry Count`,
-          value: formatUtils.tuple(formatUtils.Type.NO_HINT, `${formatUtils.pretty(configuration, err.request.retryCount, formatUtils.Type.NUMBER)} (can be increased via ${formatUtils.pretty(configuration, `httpRetry`, formatUtils.Type.SETTING)})`),
-        })}`);
-      }
-    });
-
-    networkError.originalError = err;
-    throw networkError;
+    certCache.set(caFilePath, certificate);
   }
+
+  return certificate;
 }
 
 /**
  * Searches through networkSettings and returns the most specific match
  */
-export function getNetworkSettings(target: string | URL, opts: { configuration: Configuration }) {
+export function getNetworkSettings(target: string, opts: { configuration: Configuration }) {
   // Sort the config by key length to match on the most specific pattern
   const networkSettings = [...opts.configuration.get(`networkSettings`)].sort(([keyA], [keyB]) => {
     return keyB.length - keyA.length;
@@ -125,16 +55,14 @@ export function getNetworkSettings(target: string | URL, opts: { configuration: 
 
   const mergedNetworkSettings: UndefinableSettings = {
     enableNetwork: undefined,
-    httpsCaFilePath: undefined,
+    caFilePath: undefined,
     httpProxy: undefined,
     httpsProxy: undefined,
-    httpsKeyFilePath: undefined,
-    httpsCertFilePath: undefined,
   };
 
   const mergableKeys = Object.keys(mergedNetworkSettings) as Array<keyof NetworkSettingsType>;
 
-  const url = typeof target === `string` ? new URL(target) : target;
+  const url = new URL(target);
   for (const [glob, config] of networkSettings) {
     if (micromatch.isMatch(url.hostname, glob)) {
       for (const key of mergableKeys) {
@@ -147,19 +75,65 @@ export function getNetworkSettings(target: string | URL, opts: { configuration: 
   }
 
   // Apply defaults
-  for (const key of mergableKeys)
-    if (typeof mergedNetworkSettings[key] === `undefined`)
+  for (const key of mergableKeys) {
+    if (typeof mergedNetworkSettings[key] === `undefined`) {
       mergedNetworkSettings[key] = opts.configuration.get(key) as any;
+    }
+  }
 
   return mergedNetworkSettings as NetworkSettingsType;
 }
 
-export type Response = {
-  body: any;
-  headers: IncomingHttpHeaders;
-  statusCode: number;
-  statusMessage?: string;
+const prettifyResponseCode = ({statusCode, statusMessage}: Response, configuration: Configuration) => {
+  const prettyStatusCode = formatUtils.pretty(configuration, statusCode, formatUtils.Type.NUMBER);
+  const href = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${statusCode}`;
+
+  return formatUtils.applyHyperlink(configuration, `${prettyStatusCode}${statusMessage ? ` (${statusMessage})` : ``}`, href);
 };
+
+function enhanceRequestError(error: RequestError, configuration: Configuration) {
+  const enhancedError = new EnhancedError(error, {includeStack: false}, configuration);
+
+  if (error instanceof TimeoutError && error.event === `socket`) {
+    EnhancedError.enhance(enhancedError, {
+      summary: summary => `${summary} (can be increased via ${formatUtils.pretty(configuration, `httpTimeout`, formatUtils.Type.CONFIGURATION_SETTING)})`,
+    });
+  }
+
+  if (error.request) {
+    EnhancedError.enhance(enhancedError, {
+      fields: [
+        {label: `Request Method`, value: formatUtils.tuple(formatUtils.Type.NO_HINT, error.request.options.method)},
+        {label: `Request URL`, value: formatUtils.tuple(formatUtils.Type.URL, error.request.requestUrl)},
+      ],
+    });
+
+    if (error.request.redirects.length > 0) {
+      EnhancedError.enhance(enhancedError, {
+        fields: [
+          {label: `Request Redirects`, value: formatUtils.tuple(formatUtils.Type.NO_HINT, formatUtils.prettyList(configuration, error.request.redirects, formatUtils.Type.URL))},
+        ],
+      });
+    }
+    if (error.request.retryCount === error.request.options.retry.limit) {
+      EnhancedError.enhance(enhancedError, {
+        fields: [
+          {label: `Request Retry Count`, value: formatUtils.tuple(formatUtils.Type.NO_HINT, `${formatUtils.pretty(configuration, error.request.retryCount, formatUtils.Type.NUMBER)} (can be increased via ${formatUtils.pretty(configuration, `httpRetry`, formatUtils.Type.CONFIGURATION_SETTING)})`)},
+        ],
+      });
+    }
+  }
+
+  if (error.response) {
+    EnhancedError.enhance(enhancedError, {
+      fields: [
+        {label: `Response Code`, value: formatUtils.tuple(formatUtils.Type.NO_HINT, prettifyResponseCode(error.response, configuration))},
+      ],
+    });
+  }
+
+  return enhancedError;
+}
 
 export type Body = (
   {[key: string]: any} |
@@ -176,81 +150,21 @@ export enum Method {
 }
 
 export type Options = {
-  configuration: Configuration;
-  customErrorMessage?: (err: RequestError, configuration: Configuration) => string | null;
-  headers?: {[headerName: string]: string | undefined};
-  jsonRequest?: boolean;
-  jsonResponse?: boolean;
-  method?: Method;
-  wrapNetworkRequest?: (executor: () => Promise<Response>, extra: WrapNetworkRequestInfo) => Promise<() => Promise<Response>>;
+  configuration: Configuration,
+  headers?: {[headerName: string]: string};
+  jsonRequest?: boolean,
+  jsonResponse?: boolean,
+  method?: Method,
 };
 
-export async function request(target: string | URL, body: Body, {configuration, headers, jsonRequest, jsonResponse, method = Method.GET, wrapNetworkRequest}: Omit<Options, 'customErrorMessage'>) {
-  const options = {target, body, configuration, headers, jsonRequest, jsonResponse, method};
-
-  const realRequest = async () => await requestImpl(target, body, options);
-
-  const wrappedRequest = typeof wrapNetworkRequest !== `undefined`
-    ? await wrapNetworkRequest(realRequest, options)
-    : realRequest;
-
-  const executor = await configuration.reduceHook(hooks => {
-    return hooks.wrapNetworkRequest;
-  }, wrappedRequest, options);
-
-  return await executor();
-}
-
-export async function get(target: string, {configuration, jsonResponse, customErrorMessage, wrapNetworkRequest, ...rest}: Options) {
-  const runRequest = () => prettyNetworkError(request(target, null, {configuration, wrapNetworkRequest, ...rest}), {configuration, customErrorMessage})
-    .then(response => response.body);
-
-  // We cannot cache responses when wrapNetworkRequest is used, as it can differ between calls
-  const entry = await (
-    typeof wrapNetworkRequest !== `undefined`
-      ? runRequest()
-      : miscUtils.getFactoryWithDefault(cache, target, () => {
-        return runRequest().then(body => {
-          cache.set(target, body);
-          return body;
-        });
-      })
-  );
-
-  if (jsonResponse) {
-    return JSON.parse(entry.toString());
-  } else {
-    return entry;
-  }
-}
-
-export async function put(target: string, body: Body, {customErrorMessage, ...options}: Options): Promise<Buffer> {
-  const response = await prettyNetworkError(request(target, body, {...options, method: Method.PUT}), {customErrorMessage, configuration: options.configuration});
-
-  return response.body;
-}
-
-export async function post(target: string, body: Body, {customErrorMessage, ...options}: Options): Promise<Buffer> {
-  const response = await prettyNetworkError(request(target, body, {...options, method: Method.POST}), {customErrorMessage, configuration: options.configuration});
-
-  return response.body;
-}
-
-export async function del(target: string, {customErrorMessage, ...options}: Options): Promise<Buffer> {
-  const response = await prettyNetworkError(request(target, null, {...options, method: Method.DELETE}), {customErrorMessage, configuration: options.configuration});
-
-  return response.body;
-}
-
-async function requestImpl(target: string | URL, body: Body, {configuration, headers, jsonRequest, jsonResponse, method = Method.GET}: Omit<Options, 'customErrorMessage'>): Promise<Response> {
-  const url = typeof target === `string` ? new URL(target) : target;
-
-  const networkConfig = getNetworkSettings(url, {configuration});
+export async function request(target: string, body: Body, {configuration, headers, jsonRequest, jsonResponse, method = Method.GET}: Options) {
+  const networkConfig = getNetworkSettings(target, {configuration});
   if (networkConfig.enableNetwork === false)
-    throw new ReportError(MessageName.NETWORK_DISABLED, `Request to '${url.href}' has been blocked because of your configuration settings`);
+    throw new Error(`Request to '${target}' has been blocked because of your configuration settings`);
 
+  const url = new URL(target);
   if (url.protocol === `http:` && !micromatch.isMatch(url.hostname, configuration.get(`unsafeHttpWhitelist`)))
-    throw new ReportError(MessageName.NETWORK_UNSAFE_HTTP, `Unsafe http requests must be explicitly whitelisted in your configuration (${url.hostname})`);
+    throw new Error(`Unsafe http requests must be explicitly whitelisted in your configuration (${url.hostname})`);
 
   const agent = {
     http: networkConfig.httpProxy
@@ -278,20 +192,12 @@ async function requestImpl(target: string | URL, body: Body, {configuration, hea
   const socketTimeout = configuration.get(`httpTimeout`);
   const retry = configuration.get(`httpRetry`);
   const rejectUnauthorized = configuration.get(`enableStrictSsl`);
-  const httpsCaFilePath = networkConfig.httpsCaFilePath;
-  const httpsCertFilePath = networkConfig.httpsCertFilePath;
-  const httpsKeyFilePath = networkConfig.httpsKeyFilePath;
+  const caFilePath = networkConfig.caFilePath;
 
   const {default: got} = await import(`got`);
 
-  const certificateAuthority = httpsCaFilePath
-    ? await getCachedFile(httpsCaFilePath)
-    : undefined;
-  const certificate = httpsCertFilePath
-    ? await getCachedFile(httpsCertFilePath)
-    : undefined;
-  const key = httpsKeyFilePath
-    ? await getCachedFile(httpsKeyFilePath)
+  const certificateAuthority = caFilePath
+    ? await getCachedCertificate(caFilePath)
     : undefined;
 
   const gotClient = got.extend({
@@ -302,13 +208,55 @@ async function requestImpl(target: string | URL, body: Body, {configuration, hea
     https: {
       rejectUnauthorized,
       certificateAuthority,
-      certificate,
-      key,
     },
     ...gotOptions,
   });
 
   return configuration.getLimit(`networkConcurrency`)(() => {
-    return gotClient(url);
+    return gotClient(target).catch(error => {
+      if (error instanceof RequestError)
+        throw enhanceRequestError(error, configuration);
+
+      throw error;
+    }) as unknown as Response<any>;
   });
+}
+
+export async function get(target: string, {configuration, jsonResponse, ...rest}: Options) {
+  let entry = cache.get(target);
+
+  if (!entry) {
+    entry = request(target, null, {configuration, ...rest}).then(response => {
+      cache.set(target, response.body);
+      return response.body;
+    });
+    cache.set(target, entry);
+  }
+
+  if (Buffer.isBuffer(entry) === false)
+    entry = await entry;
+
+  if (jsonResponse) {
+    return JSON.parse(entry.toString());
+  } else {
+    return entry;
+  }
+}
+
+export async function put(target: string, body: Body, options: Options): Promise<Buffer> {
+  const response = await request(target, body, {...options, method: Method.PUT});
+
+  return response.body;
+}
+
+export async function post(target: string, body: Body, options: Options): Promise<Buffer> {
+  const response = await request(target, body, {...options, method: Method.POST});
+
+  return response.body;
+}
+
+export async function del(target: string, options: Options): Promise<Buffer> {
+  const response = await request(target, null, {...options, method: Method.DELETE});
+
+  return response.body;
 }

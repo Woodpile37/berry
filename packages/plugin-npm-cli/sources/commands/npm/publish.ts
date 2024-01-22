@@ -1,8 +1,8 @@
-import {BaseCommand, WorkspaceRequiredError}                                                    from '@yarnpkg/cli';
-import {Configuration, MessageName, Project, ReportError, StreamReport, scriptUtils, miscUtils} from '@yarnpkg/core';
-import {npmConfigUtils, npmHttpUtils, npmPublishUtils}                                          from '@yarnpkg/plugin-npm';
-import {packUtils}                                                                              from '@yarnpkg/plugin-pack';
-import {Command, Option, Usage, UsageError}                                                     from 'clipanion';
+import {BaseCommand, WorkspaceRequiredError}                                                                   from '@yarnpkg/cli';
+import {Configuration, MessageName, Project, ReportError, StreamReport, scriptUtils, miscUtils, EnhancedError} from '@yarnpkg/core';
+import {npmConfigUtils, npmHttpUtils, npmPublishUtils}                                                         from '@yarnpkg/plugin-npm';
+import {packUtils}                                                                                             from '@yarnpkg/plugin-pack';
+import {Command, Option, Usage, UsageError}                                                                    from 'clipanion';
 
 // eslint-disable-next-line arca/no-default-export
 export default class NpmPublishCommand extends BaseCommand {
@@ -36,10 +36,6 @@ export default class NpmPublishCommand extends BaseCommand {
 
   tolerateRepublish = Option.Boolean(`--tolerate-republish`, false, {
     description: `Warn and exit when republishing an already existing version of a package`,
-  });
-
-  otp = Option.String(`--otp`, {
-    description: `The OTP token to use with the command`,
   });
 
   async execute() {
@@ -76,16 +72,18 @@ export default class NpmPublishCommand extends BaseCommand {
             jsonResponse: true,
           });
 
-          if (!Object.hasOwn(registryData, `versions`))
+          if (!Object.prototype.hasOwnProperty.call(registryData, `versions`))
             throw new ReportError(MessageName.REMOTE_INVALID, `Registry returned invalid data for - missing "versions" field`);
 
-          if (Object.hasOwn(registryData.versions, version)) {
+          if (Object.prototype.hasOwnProperty.call(registryData.versions, version)) {
             report.reportWarning(MessageName.UNNAMED, `Registry already knows about version ${version}; skipping.`);
             return;
           }
-        } catch (err) {
-          if (err.originalError?.response?.statusCode !== 404) {
-            throw err;
+        } catch (error) {
+          if (error.name !== `HTTPError`) {
+            throw error;
+          } else if (error.response.statusCode !== 404) {
+            throw new ReportError(MessageName.NETWORK_ERROR, new EnhancedError(error, {summary: `The remote server answered with HTTP ${error.response.statusCode} ${error.response.statusMessage}`}));
           }
         }
       }
@@ -101,24 +99,33 @@ export default class NpmPublishCommand extends BaseCommand {
         const pack = await packUtils.genPackStream(workspace, files);
         const buffer = await miscUtils.bufferStream(pack);
 
-        const gitHead = await npmPublishUtils.getGitHead(workspace.cwd);
         const body = await npmPublishUtils.makePublishBody(workspace, buffer, {
           access: this.access,
           tag: this.tag,
           registry,
-          gitHead,
         });
 
-        await npmHttpUtils.put(npmHttpUtils.getIdentUrl(ident), body, {
-          configuration,
-          registry,
-          ident,
-          otp: this.otp,
-          jsonResponse: true,
-        });
+        try {
+          await npmHttpUtils.put(npmHttpUtils.getIdentUrl(ident), body, {
+            configuration,
+            registry,
+            ident,
+            jsonResponse: true,
+          });
+        } catch (error) {
+          if (error.name !== `HTTPError`) {
+            throw error;
+          } else {
+            const summary = error.response.body?.error ?? `The remote server answered with HTTP ${error.response.statusCode} ${error.response.statusMessage}`;
+
+            report.reportError(MessageName.NETWORK_ERROR, new EnhancedError(error, {summary}).toString());
+          }
+        }
       });
 
-      report.reportInfo(MessageName.UNNAMED, `Package archive published`);
+      if (!report.hasErrors()) {
+        report.reportInfo(MessageName.UNNAMED, `Package archive published`);
+      }
     });
 
     return report.exitCode();

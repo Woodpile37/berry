@@ -1,26 +1,22 @@
-import sliceAnsi                                                                    from '@arcanis/slice-ansi';
-import CI                                                                           from 'ci-info';
-import {Writable}                                                                   from 'stream';
-import {WriteStream}                                                                from 'tty';
+import sliceAnsi                                  from '@arcanis/slice-ansi';
+import {Writable}                                 from 'stream';
 
-import {Configuration}                                                              from './Configuration';
-import {MessageName, stringifyMessageName}                                          from './MessageName';
-import {ProgressDefinition, Report, SectionOptions, TimerOptions, ProgressIterable} from './Report';
-import * as formatUtils                                                             from './formatUtils';
-import * as structUtils                                                             from './structUtils';
-import {Locator}                                                                    from './types';
+import {Configuration}                            from './Configuration';
+import {MessageName, stringifyMessageName}        from './MessageName';
+import {ProgressDefinition, Report, TimerOptions} from './Report';
+import * as formatUtils                           from './formatUtils';
+import {Locator}                                  from './types';
 
 export type StreamReportOptions = {
-  configuration: Configuration;
-  forgettableBufferSize?: number;
-  forgettableNames?: Set<MessageName | null>;
-  includeFooter?: boolean;
-  includeInfos?: boolean;
-  includeLogs?: boolean;
-  includeWarnings?: boolean;
-  includePrefix?: boolean;
-  json?: boolean;
-  stdout: Writable;
+  configuration: Configuration,
+  forgettableBufferSize?: number,
+  forgettableNames?: Set<MessageName | null>,
+  includeFooter?: boolean,
+  includeInfos?: boolean,
+  includeLogs?: boolean,
+  includeWarnings?: boolean,
+  json?: boolean,
+  stdout: Writable,
 };
 
 const PROGRESS_FRAMES = [`⠋`, `⠙`, `⠹`, `⠸`, `⠼`, `⠴`, `⠦`, `⠧`, `⠇`, `⠏`];
@@ -29,12 +25,12 @@ const PROGRESS_INTERVAL = 80;
 const BASE_FORGETTABLE_NAMES = new Set<MessageName | null>([MessageName.FETCH_NOT_CACHED, MessageName.UNUSED_CACHE_ENTRY]);
 const BASE_FORGETTABLE_BUFFER_SIZE = 5;
 
-const GROUP = CI.GITHUB_ACTIONS
+const GROUP = process.env.GITHUB_ACTIONS
   ? {start: (what: string) => `::group::${what}\n`, end: (what: string) => `::endgroup::\n`}
-  : CI.TRAVIS
+  : process.env.TRAVIS
     ? {start: (what: string) => `travis_fold:start:${what}\n`, end: (what: string) => `travis_fold:end:${what}\n`}
-    : CI.GITLAB
-      ? {start: (what: string) => `section_start:${Math.floor(Date.now() / 1000)}:${what.toLowerCase().replace(/\W+/g, `_`)}[collapsed=true]\r\x1b[0K${what}\n`, end: (what: string) => `section_end:${Math.floor(Date.now() / 1000)}:${what.toLowerCase().replace(/\W+/g, `_`)}\r\x1b[0K`}
+    : process.env.GITLAB_CI
+      ? {start: (what: string) => `section_start:${Math.floor(Date.now() / 1000)}:${what.toLowerCase().replace(/\W+/g, `_`)}\r\x1b[0K${what}\n`, end: (what: string) => `section_end:${Math.floor(Date.now() / 1000)}:${what.toLowerCase().replace(/\W+/g, `_`)}\r\x1b[0K`}
       : null;
 
 const now = new Date();
@@ -42,7 +38,7 @@ const now = new Date();
 // We only want to support environments that will out-of-the-box accept the
 // characters we want to use. Others can enforce the style from the project
 // configuration.
-const supportsEmojis = [`iTerm.app`, `Apple_Terminal`, `WarpTerminal`, `vscode`].includes(process.env.TERM_PROGRAM!) || !!process.env.WT_SESSION;
+const supportsEmojis = [`iTerm.app`, `Apple_Terminal`].includes(process.env.TERM_PROGRAM!) || !!process.env.WT_SESSION;
 
 const makeRecord = <T>(obj: {[key: string]: T}) => obj;
 const PROGRESS_STYLES = makeRecord({
@@ -82,9 +78,6 @@ const defaultStyle = (supportsEmojis && Object.keys(PROGRESS_STYLES).find(name =
 })) || `default`;
 
 export function formatName(name: MessageName | null, {configuration, json}: {configuration: Configuration, json: boolean}) {
-  if (!configuration.get(`enableMessageNames`))
-    return ``;
-
   const num = name === null ? 0 : name;
   const label = stringifyMessageName(num);
 
@@ -97,8 +90,6 @@ export function formatName(name: MessageName | null, {configuration, json}: {con
 
 export function formatNameWithHyperlink(name: MessageName | null, {configuration, json}: {configuration: Configuration, json: boolean}) {
   const code = formatName(name, {configuration, json});
-  if (!code)
-    return code;
 
   // Don't print hyperlinks for the generic messages
   if (name === null || name === MessageName.UNNAMED)
@@ -143,7 +134,6 @@ export class StreamReport extends Report {
   }
 
   private configuration: Configuration;
-  private includePrefix: boolean;
   private includeFooter: boolean;
   private includeInfos: boolean;
   private includeWarnings: boolean;
@@ -151,32 +141,30 @@ export class StreamReport extends Report {
   private stdout: Writable;
 
   private uncommitted = new Set<{
-    committed: boolean;
-    action: () => void;
+    committed: boolean,
+    action: () => void,
   }>();
 
   private cacheHitCount: number = 0;
   private cacheMissCount: number = 0;
-  private lastCacheMiss: Locator | null = null;
 
   private warningCount: number = 0;
-  private errors: Array<[MessageName, string]> = [];
+  private errorCount: number = 0;
 
   private startTime: number = Date.now();
 
   private indent: number = 0;
 
-  private progress: Map<ProgressIterable, {
-    definition: ProgressDefinition;
-    lastScaledSize?: number;
-    lastTitle?: string;
+  private progress: Map<AsyncIterable<ProgressDefinition>, {
+    definition: ProgressDefinition,
+    lastScaledSize: number,
   }> = new Map();
 
   private progressTime: number = 0;
   private progressFrame: number = 0;
   private progressTimeout: ReturnType<typeof setTimeout> | null = null;
-  private progressStyle: {date?: Array<number>, chars: Array<string>, size: number} | null = null;
-  private progressMaxScaledSize: number | null = null;
+  private progressStyle: {date?: Array<number>, chars: Array<string>, size: number};
+  private progressMaxScaledSize: number;
 
   private forgettableBufferSize: number;
   private forgettableNames: Set<MessageName | null>;
@@ -186,7 +174,6 @@ export class StreamReport extends Report {
     configuration,
     stdout,
     json = false,
-    includePrefix = true,
     includeFooter = true,
     includeLogs = !json,
     includeInfos = includeLogs,
@@ -201,29 +188,25 @@ export class StreamReport extends Report {
     this.configuration = configuration;
     this.forgettableBufferSize = forgettableBufferSize;
     this.forgettableNames = new Set([...forgettableNames, ...BASE_FORGETTABLE_NAMES]);
-    this.includePrefix = includePrefix;
     this.includeFooter = includeFooter;
     this.includeInfos = includeInfos;
     this.includeWarnings = includeWarnings;
     this.json = json;
     this.stdout = stdout;
 
-    // Setup progress
-    if (configuration.get(`enableProgressBars`) && !json && (stdout as WriteStream).isTTY && (stdout as WriteStream).columns > 22) {
-      const styleName = configuration.get(`progressBarStyle`) || defaultStyle;
-      if (!Object.prototype.hasOwnProperty.call(PROGRESS_STYLES, styleName))
-        throw new Error(`Assertion failed: Invalid progress bar style`);
+    const styleName = this.configuration.get(`progressBarStyle`) || defaultStyle;
+    if (!Object.prototype.hasOwnProperty.call(PROGRESS_STYLES, styleName))
+      throw new Error(`Assertion failed: Invalid progress bar style`);
 
-      this.progressStyle = PROGRESS_STYLES[styleName];
-      const PAD_LEFT = `➤ YN0000: ┌ `.length;
+    this.progressStyle = PROGRESS_STYLES[styleName];
+    const PAD_LEFT = `➤ YN0000: ┌ `.length;
 
-      const maxWidth = Math.max(0, Math.min((stdout as WriteStream).columns - PAD_LEFT, 80));
-      this.progressMaxScaledSize = Math.floor(this.progressStyle.size * maxWidth / 80);
-    }
+    const maxWidth = Math.max(0, Math.min(process.stdout.columns - PAD_LEFT, 80));
+    this.progressMaxScaledSize = Math.floor(this.progressStyle.size * maxWidth / 80);
   }
 
   hasErrors() {
-    return this.errors.length > 0;
+    return this.errorCount > 0;
   }
 
   exitCode() {
@@ -235,7 +218,6 @@ export class StreamReport extends Report {
   }
 
   reportCacheMiss(locator: Locator, message?: string) {
-    this.lastCacheMiss = locator;
     this.cacheMissCount += 1;
 
     if (typeof message !== `undefined` && !this.configuration.get(`preferAggregateCacheInfo`)) {
@@ -243,110 +225,100 @@ export class StreamReport extends Report {
     }
   }
 
-  startSectionSync<T>({reportHeader, reportFooter, skipIfEmpty}: SectionOptions, cb: () => T) {
-    const mark = {committed: false, action: () => {
-      reportHeader?.();
-    }};
-
-    if (skipIfEmpty) {
-      this.uncommitted.add(mark);
-    } else {
-      mark.action();
-      mark.committed = true;
-    }
-
-    const before = Date.now();
-
-    try {
-      return cb();
-    } catch (error) {
-      this.reportExceptionOnce(error);
-      throw error;
-    } finally {
-      const after = Date.now();
-
-      this.uncommitted.delete(mark);
-      if (mark.committed) {
-        reportFooter?.(after - before);
-      }
-    }
-  }
-
-  async startSectionPromise<T>({reportHeader, reportFooter, skipIfEmpty}: SectionOptions, cb: () => Promise<T>) {
-    const mark = {committed: false, action: () => {
-      reportHeader?.();
-    }};
-
-    if (skipIfEmpty) {
-      this.uncommitted.add(mark);
-    } else {
-      mark.action();
-      mark.committed = true;
-    }
-
-    const before = Date.now();
-
-    try {
-      return await cb();
-    } catch (error) {
-      this.reportExceptionOnce(error);
-      throw error;
-    } finally {
-      const after = Date.now();
-
-      this.uncommitted.delete(mark);
-      if (mark.committed) {
-        reportFooter?.(after - before);
-      }
-    }
-  }
-
-  private startTimerImpl<Callback extends Function>(what: string, opts: TimerOptions | Callback, cb?: Callback) {
+  startTimerSync<T>(what: string, opts: TimerOptions, cb: () => T): void;
+  startTimerSync<T>(what: string, cb: () => T): void;
+  startTimerSync<T>(what: string, opts: TimerOptions | (() => T), cb?: () => T) {
     const realOpts = typeof opts === `function` ? {} : opts;
     const realCb = typeof opts === `function` ? opts : cb!;
 
-    return {
-      cb: realCb,
-      reportHeader: () => {
-        this.reportInfo(null, `┌ ${what}`);
-        this.indent += 1;
+    const mark = {committed: false, action: () => {
+      this.reportInfo(null, `┌ ${what}`);
+      this.indent += 1;
 
-        if (GROUP !== null && !this.json && this.includeInfos) {
-          this.stdout.write(GROUP.start(what));
-        }
-      },
-      reportFooter: elapsedTime => {
+      if (GROUP !== null) {
+        this.stdout.write(GROUP.start(what));
+      }
+    }};
+
+    if (realOpts.skipIfEmpty) {
+      this.uncommitted.add(mark);
+    } else {
+      mark.action();
+      mark.committed = true;
+    }
+
+    const before = Date.now();
+
+    try {
+      return realCb();
+    } catch (error) {
+      this.reportExceptionOnce(error);
+      throw error;
+    } finally {
+      const after = Date.now();
+
+      this.uncommitted.delete(mark);
+      if (mark.committed) {
         this.indent -= 1;
 
-        if (GROUP !== null && !this.json && this.includeInfos) {
+        if (GROUP !== null)
           this.stdout.write(GROUP.end(what));
-          for (const [name, text] of this.errors) {
-            this.reportErrorImpl(name, text);
-          }
-        }
 
-        if (this.configuration.get(`enableTimers`) && elapsedTime > 200) {
-          this.reportInfo(null, `└ Completed in ${formatUtils.pretty(this.configuration, elapsedTime, formatUtils.Type.DURATION)}`);
+        if (this.configuration.get(`enableTimers`) && after - before > 200) {
+          this.reportInfo(null, `└ Completed in ${formatUtils.pretty(this.configuration, after - before, formatUtils.Type.DURATION)}`);
         } else {
           this.reportInfo(null, `└ Completed`);
         }
-      },
-      skipIfEmpty: realOpts.skipIfEmpty,
-    } as SectionOptions & {cb: Callback};
+      }
+    }
   }
 
-  startTimerSync<T>(what: string, opts: TimerOptions, cb: () => T): T;
-  startTimerSync<T>(what: string, cb: () => T): T;
-  startTimerSync<T>(what: string, opts: TimerOptions | (() => T), cb?: () => T) {
-    const {cb: realCb, ...sectionOps} = this.startTimerImpl(what, opts, cb);
-    return this.startSectionSync(sectionOps, realCb);
-  }
-
-  async startTimerPromise<T>(what: string, opts: TimerOptions, cb: () => Promise<T>): Promise<T>;
-  async startTimerPromise<T>(what: string, cb: () => Promise<T>): Promise<T>;
+  async startTimerPromise<T>(what: string, opts: TimerOptions, cb: () => Promise<T>): Promise<void>;
+  async startTimerPromise<T>(what: string, cb: () => Promise<T>): Promise<void>;
   async startTimerPromise<T>(what: string, opts: TimerOptions | (() => Promise<T>), cb?: () => Promise<T>) {
-    const {cb: realCb, ...sectionOps} = this.startTimerImpl(what, opts, cb);
-    return this.startSectionPromise(sectionOps, realCb);
+    const realOpts = typeof opts === `function` ? {} : opts;
+    const realCb = typeof opts === `function` ? opts : cb!;
+
+    const mark = {committed: false, action: () => {
+      this.reportInfo(null, `┌ ${what}`);
+      this.indent += 1;
+
+      if (GROUP !== null) {
+        this.stdout.write(GROUP.start(what));
+      }
+    }};
+
+    if (realOpts.skipIfEmpty) {
+      this.uncommitted.add(mark);
+    } else {
+      mark.action();
+      mark.committed = true;
+    }
+
+    const before = Date.now();
+
+    try {
+      return await realCb();
+    } catch (error) {
+      this.reportExceptionOnce(error);
+      throw error;
+    } finally {
+      const after = Date.now();
+
+      this.uncommitted.delete(mark);
+      if (mark.committed) {
+        this.indent -= 1;
+
+        if (GROUP !== null)
+          this.stdout.write(GROUP.end(what));
+
+        if (this.configuration.get(`enableTimers`) && after - before > 200) {
+          this.reportInfo(null, `└ Completed in ${formatUtils.pretty(this.configuration, after - before, formatUtils.Type.DURATION)}`);
+        } else {
+          this.reportInfo(null, `└ Completed`);
+        }
+      }
+    }
   }
 
   async startCacheReport<T>(cb: () => Promise<T>) {
@@ -380,9 +352,7 @@ export class StreamReport extends Report {
 
     this.commit();
 
-    const formattedName = this.formatNameWithHyperlink(name);
-    const prefix = formattedName ? `${formattedName}: ` : ``;
-    const message = `${this.formatPrefix(prefix, `blueBright`)}${text}`;
+    const message = `${formatUtils.pretty(this.configuration, `➤`, `blueBright`)} ${this.formatNameWithHyperlink(name)}: ${this.formatIndent()}${text}`;
 
     if (!this.json) {
       if (this.forgettableNames.has(name)) {
@@ -411,68 +381,49 @@ export class StreamReport extends Report {
 
     this.commit();
 
-    const formattedName = this.formatNameWithHyperlink(name);
-    const prefix = formattedName ? `${formattedName}: ` : ``;
-
     if (!this.json) {
-      this.writeLineWithForgettableReset(`${this.formatPrefix(prefix, `yellowBright`)}${text}`);
+      this.writeLineWithForgettableReset(`${formatUtils.pretty(this.configuration, `➤`, `yellowBright`)} ${this.formatNameWithHyperlink(name)}: ${this.formatIndent()}${text}`);
     } else {
       this.reportJson({type: `warning`, name, displayName: this.formatName(name), indent: this.formatIndent(), data: text});
     }
   }
 
   reportError(name: MessageName, text: string) {
-    this.errors.push([name, text]);
+    this.errorCount += 1;
 
-    this.reportErrorImpl(name, text);
-  }
-
-  reportErrorImpl(name: MessageName, text: string) {
     this.commit();
 
-    const formattedName = this.formatNameWithHyperlink(name);
-    const prefix = formattedName ? `${formattedName}: ` : ``;
-
     if (!this.json) {
-      this.writeLineWithForgettableReset(`${this.formatPrefix(prefix, `redBright`)}${text}`, {truncate: false});
+      this.writeLineWithForgettableReset(`${formatUtils.pretty(this.configuration, `➤`, `redBright`)} ${this.formatNameWithHyperlink(name)}: ${this.formatIndent()}${text}`, {truncate: false});
     } else {
       this.reportJson({type: `error`, name, displayName: this.formatName(name), indent: this.formatIndent(), data: text});
     }
   }
 
-  reportProgress(progressIt: ProgressIterable) {
-    if (this.progressStyle === null)
-      return {...Promise.resolve(), stop: () => {}};
-
-    if (progressIt.hasProgress && progressIt.hasTitle)
-      throw new Error(`Unimplemented: Progress bars can't have both progress and titles.`);
-
+  reportProgress(progressIt: AsyncIterable<{progress: number, title?: string}>) {
     let stopped = false;
 
     const promise = Promise.resolve().then(async () => {
       const progressDefinition: ProgressDefinition = {
-        progress: progressIt.hasProgress ? 0 : undefined,
-        title: progressIt.hasTitle ? `` : undefined,
+        progress: 0,
+        title: undefined,
       };
 
       this.progress.set(progressIt, {
         definition: progressDefinition,
-        lastScaledSize: progressIt.hasProgress ? -1 : undefined,
-        lastTitle: undefined,
+        lastScaledSize: -1,
       });
 
-      this.refreshProgress({delta: -1});
+      this.refreshProgress(-1);
 
       for await (const {progress, title} of progressIt) {
         if (stopped)
           continue;
-
         if (progressDefinition.progress === progress && progressDefinition.title === title)
           continue;
 
         progressDefinition.progress = progress;
         progressDefinition.title = title;
-
         this.refreshProgress();
       }
 
@@ -486,7 +437,7 @@ export class StreamReport extends Report {
       stopped = true;
 
       this.progress.delete(progressIt);
-      this.refreshProgress({delta: +1});
+      this.refreshProgress(+1);
     };
 
     return {...promise, stop};
@@ -504,7 +455,7 @@ export class StreamReport extends Report {
 
     let installStatus = ``;
 
-    if (this.errors.length > 0)
+    if (this.errorCount > 0)
       installStatus = `Failed with errors`;
     else if (this.warningCount > 0)
       installStatus = `Done with warnings`;
@@ -516,7 +467,7 @@ export class StreamReport extends Report {
       ? `${installStatus} in ${timing}`
       : installStatus;
 
-    if (this.errors.length > 0) {
+    if (this.errorCount > 0) {
       this.reportError(MessageName.UNNAMED, message);
     } else if (this.warningCount > 0) {
       this.reportWarning(MessageName.UNNAMED, message);
@@ -565,13 +516,13 @@ export class StreamReport extends Report {
       if (this.cacheMissCount > 1) {
         fetchStatus += `, ${this.cacheMissCount} had to be fetched`;
       } else if (this.cacheMissCount === 1) {
-        fetchStatus += `, one had to be fetched (${structUtils.prettyLocator(this.configuration, this.lastCacheMiss!)})`;
+        fetchStatus += `, one had to be fetched`;
       }
     } else {
       if (this.cacheMissCount > 1) {
         fetchStatus += ` - ${this.cacheMissCount} packages had to be fetched`;
       } else if (this.cacheMissCount === 1) {
-        fetchStatus += ` - one package had to be fetched (${structUtils.prettyLocator(this.configuration, this.lastCacheMiss!)})`;
+        fetchStatus += ` - one package had to be fetched`;
       }
     }
 
@@ -589,7 +540,7 @@ export class StreamReport extends Report {
   }
 
   private clearProgress({delta = 0, clear = false}: {delta?: number, clear?: boolean}) {
-    if (this.progressStyle === null)
+    if (!this.configuration.get(`enableProgressBars`) || this.json)
       return;
 
     if (this.progress.size + delta > 0) {
@@ -601,7 +552,7 @@ export class StreamReport extends Report {
   }
 
   private writeProgress() {
-    if (this.progressStyle === null)
+    if (!this.configuration.get(`enableProgressBars`) || this.json)
       return;
 
     if (this.progressTimeout !== null)
@@ -622,45 +573,30 @@ export class StreamReport extends Report {
     const spinner = PROGRESS_FRAMES[this.progressFrame];
 
     for (const progress of this.progress.values()) {
-      let progressBar = ``;
+      const ok = this.progressStyle.chars[0].repeat(progress.lastScaledSize);
+      const ko = this.progressStyle.chars[1].repeat(this.progressMaxScaledSize - progress.lastScaledSize);
 
-      if (typeof progress.lastScaledSize !== `undefined`) {
-        const ok = this.progressStyle.chars[0].repeat(progress.lastScaledSize);
-        const ko = this.progressStyle.chars[1].repeat(this.progressMaxScaledSize! - progress.lastScaledSize);
-        progressBar = ` ${ok}${ko}`;
-      }
-
-      const formattedName = this.formatName(null);
-      const prefix = formattedName ? `${formattedName}: ` : ``;
-      const title = progress.definition.title ? ` ${progress.definition.title}` : ``;
-
-      this.stdout.write(`${formatUtils.pretty(this.configuration, `➤`, `blueBright`)} ${prefix}${spinner}${progressBar}${title}\n`);
+      this.stdout.write(`${formatUtils.pretty(this.configuration, `➤`, `blueBright`)} ${this.formatName(null)}: ${spinner} ${ok}${ko}\n`);
     }
 
     this.progressTimeout = setTimeout(() => {
-      this.refreshProgress({force: true});
+      this.refreshProgress();
     }, PROGRESS_INTERVAL);
   }
 
-  private refreshProgress({delta = 0, force = false}: {delta?: number, force?: boolean} = {}) {
+  private refreshProgress(delta: number = 0) {
     let needsUpdate = false;
-    let needsClear = false;
 
-    if (force || this.progress.size === 0) {
+    if (this.progress.size === 0) {
       needsUpdate = true;
     } else {
       for (const progress of this.progress.values()) {
-        const refreshedScaledSize = typeof progress.definition.progress !== `undefined`
-          ? Math.trunc(this.progressMaxScaledSize! * progress.definition.progress)
-          : undefined;
+        const refreshedScaledSize = Math.trunc(this.progressMaxScaledSize * progress.definition.progress);
 
         const previousScaledSize = progress.lastScaledSize;
         progress.lastScaledSize = refreshedScaledSize;
 
-        const previousTitle = progress.lastTitle;
-        progress.lastTitle = progress.definition.title;
-
-        if ((refreshedScaledSize !== previousScaledSize) || (needsClear = previousTitle !== progress.definition.title)) {
+        if (refreshedScaledSize !== previousScaledSize) {
           needsUpdate = true;
           break;
         }
@@ -668,13 +604,13 @@ export class StreamReport extends Report {
     }
 
     if (needsUpdate) {
-      this.clearProgress({delta, clear: needsClear});
+      this.clearProgress({delta});
       this.writeProgress();
     }
   }
 
   private truncate(str: string, {truncate}: {truncate?: boolean} = {}) {
-    if (this.progressStyle === null)
+    if (!this.configuration.get(`enableProgressBars`))
       truncate = false;
 
     if (typeof truncate === `undefined`)
@@ -683,7 +619,7 @@ export class StreamReport extends Report {
     // The -1 is to account for terminals that would wrap after
     // the last column rather before the first overwrite
     if (truncate)
-      str = sliceAnsi(str, 0, (this.stdout as WriteStream).columns - 1);
+      str = sliceAnsi(str, 0, process.stdout.columns - 1);
 
     return str;
   }
@@ -693,10 +629,6 @@ export class StreamReport extends Report {
       configuration: this.configuration,
       json: this.json,
     });
-  }
-
-  private formatPrefix(prefix: string, caretColor: string) {
-    return this.includePrefix ? `${formatUtils.pretty(this.configuration, `➤`, caretColor)} ${prefix}${this.formatIndent()}` : ``;
   }
 
   private formatNameWithHyperlink(name: MessageName | null) {

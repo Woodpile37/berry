@@ -1,12 +1,11 @@
-import {BaseCommand, WorkspaceRequiredError}                                       from '@yarnpkg/cli';
-import {Configuration, Project, MessageName, treeUtils, LightReport, StreamReport} from '@yarnpkg/core';
-import {npmConfigUtils, npmHttpUtils}                                              from '@yarnpkg/plugin-npm';
-import {Command, Option, Usage}                                                    from 'clipanion';
-import micromatch                                                                  from 'micromatch';
-import * as t                                                                      from 'typanion';
+import {BaseCommand, WorkspaceRequiredError}                                                                   from '@yarnpkg/cli';
+import {Configuration, Project, ReportError, MessageName, treeUtils, LightReport, StreamReport, EnhancedError} from '@yarnpkg/core';
+import {npmConfigUtils, npmHttpUtils}                                                                          from '@yarnpkg/plugin-npm';
+import {Command, Option, Usage}                                                                                from 'clipanion';
+import * as t                                                                                                  from 'typanion';
 
-import * as npmAuditTypes                                                          from '../../npmAuditTypes';
-import * as npmAuditUtils                                                          from '../../npmAuditUtils';
+import * as npmAuditTypes                                                                                      from '../../npmAuditTypes';
+import * as npmAuditUtils                                                                                      from '../../npmAuditUtils';
 
 // eslint-disable-next-line arca/no-default-export
 export default class AuditCommand extends BaseCommand {
@@ -24,10 +23,6 @@ export default class AuditCommand extends BaseCommand {
       Applying the \`--severity\` flag will limit the audit table to vulnerabilities of the corresponding severity and above. Valid values are ${npmAuditUtils.allSeverities.map(value => `\`${value}\``).join(`, `)}.
 
       If the \`--json\` flag is set, Yarn will print the output exactly as received from the registry. Regardless of this flag, the process will exit with a non-zero exit code if a report is found for the selected packages.
-
-      If certain packages produce false positives for a particular environment, the \`--exclude\` flag can be used to exclude any number of packages from the audit. This can also be set in the configuration file with the \`npmAuditExcludePackages\` option.
-
-      If particular advisories are needed to be ignored, the \`--ignore\` flag can be used with Advisory ID's to ignore any number of advisories in the audit report. This can also be set in the configuration file with the \`npmAuditIgnoreAdvisories\` option.
 
       To understand the dependency tree requiring vulnerable packages, check the raw report with the \`--json\` flag or use \`yarn why <package>\` to get more information as to who depends on them.
     `,
@@ -49,12 +44,6 @@ export default class AuditCommand extends BaseCommand {
     ], [
       `Output moderate (or more severe) vulnerabilities`,
       `yarn npm audit --severity moderate`,
-    ], [
-      `Exclude certain packages`,
-      `yarn npm audit --exclude package1 --exclude package2`,
-    ], [
-      `Ignore specific advisories`,
-      `yarn npm audit --ignore 1234567 --ignore 7654321`,
     ]],
   });
 
@@ -80,14 +69,6 @@ export default class AuditCommand extends BaseCommand {
     validator: t.isEnum(npmAuditTypes.Severity),
   });
 
-  excludes = Option.Array(`--exclude`, [], {
-    description: `Array of glob patterns of packages to exclude from audit`,
-  });
-
-  ignores = Option.Array(`--ignore`, [], {
-    description: `Array of glob patterns of advisory ID's to ignore in the audit report`,
-  });
-
   async execute() {
     const configuration = await Configuration.find(this.context.cwd, this.context.plugins);
     const {project, workspace} = await Project.find(configuration, this.context.cwd);
@@ -110,76 +91,38 @@ export default class AuditCommand extends BaseCommand {
       }
     }
 
-    const excludedPackages = Array.from(new Set([
-      ...configuration.get(`npmAuditExcludePackages`),
-      ...this.excludes,
-    ]));
-
-    if (excludedPackages) {
-      for (const pkg of Object.keys(requires)) {
-        if (micromatch.isMatch(pkg, excludedPackages)) {
-          delete requires[pkg];
-        }
-      }
-
-      for (const pkg of Object.keys(dependencies)) {
-        if (micromatch.isMatch(pkg, excludedPackages)) {
-          delete dependencies[pkg];
-        }
-      }
-
-      for (const key of Object.keys(dependencies)) {
-        for (const pkg of Object.keys(dependencies[key].requires)) {
-          if (micromatch.isMatch(pkg, excludedPackages)) {
-            delete dependencies[key].requires[pkg];
-          }
-        }
-      }
-    }
-
     const body = {
       requires,
       dependencies,
     };
 
-    const registry = npmConfigUtils.getAuditRegistry({configuration});
+    const registry = npmConfigUtils.getPublishRegistry(workspace.manifest, {
+      configuration,
+    });
 
     let result!: npmAuditTypes.AuditResponse;
     const httpReport = await LightReport.start({
       configuration,
       stdout: this.context.stdout,
     }, async () => {
-      result = ((await npmHttpUtils.post(`/-/npm/v1/security/audits/quick`, body, {
-        authType: npmHttpUtils.AuthType.BEST_EFFORT,
-        configuration,
-        jsonResponse: true,
-        registry,
-      })) as unknown) as npmAuditTypes.AuditResponse;
+      try {
+        result = ((await npmHttpUtils.post(`/-/npm/v1/security/audits/quick`, body, {
+          authType: npmHttpUtils.AuthType.NO_AUTH,
+          configuration,
+          jsonResponse: true,
+          registry,
+        })) as unknown) as npmAuditTypes.AuditResponse;
+      } catch (err) {
+        if (err.name !== `HTTPError`) {
+          throw err;
+        } else {
+          throw new ReportError(MessageName.EXCEPTION, new EnhancedError(err));
+        }
+      }
     });
 
     if (httpReport.hasErrors())
       return httpReport.exitCode();
-
-    const ignoredAdvisories = Array.from(new Set([
-      ...configuration.get(`npmAuditIgnoreAdvisories`),
-      ...this.ignores,
-    ]));
-
-    if (ignoredAdvisories) {
-      for (const advisory of Object.keys(result.advisories)) {
-        if (micromatch.isMatch(advisory, ignoredAdvisories)) {
-          const entry = result.advisories[advisory];
-<<<<<<< HEAD
-          result.metadata.vulnerabilities[entry.severity] -= 1;
-=======
-          let affectedPathsCount = 0;
-          entry.findings.forEach(finding => affectedPathsCount += finding.paths.length);
-          result.metadata.vulnerabilities[entry.severity] -= affectedPathsCount;
->>>>>>> upstream/cherry-pick/next-release
-          delete result.advisories[advisory];
-        }
-      }
-    }
 
     const hasError = npmAuditUtils.isError(result.metadata.vulnerabilities, this.severity);
     if (!this.json && hasError) {
@@ -192,7 +135,7 @@ export default class AuditCommand extends BaseCommand {
       return 1;
     }
 
-    await StreamReport.start({
+    const outReport = await StreamReport.start({
       configuration,
       includeFooter: false,
       json: this.json,
@@ -205,6 +148,6 @@ export default class AuditCommand extends BaseCommand {
       }
     });
 
-    return hasError ? 1 : 0;
+    return outReport.exitCode();
   }
 }

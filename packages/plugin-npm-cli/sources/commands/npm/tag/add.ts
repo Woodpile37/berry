@@ -1,10 +1,10 @@
-import {BaseCommand, WorkspaceRequiredError}                                         from '@yarnpkg/cli';
-import {Configuration, Project, structUtils, MessageName, StreamReport, formatUtils} from '@yarnpkg/core';
-import {npmHttpUtils, npmConfigUtils}                                                from '@yarnpkg/plugin-npm';
-import {Command, UsageError, Usage, Option}                                          from 'clipanion';
-import semver                                                                        from 'semver';
+import {BaseCommand, WorkspaceRequiredError}                                                        from '@yarnpkg/cli';
+import {Configuration, Project, structUtils, MessageName, StreamReport, formatUtils, EnhancedError} from '@yarnpkg/core';
+import {npmHttpUtils, npmConfigUtils}                                                               from '@yarnpkg/plugin-npm';
+import {Command, UsageError, Usage, Option}                                                         from 'clipanion';
+import semver                                                                                       from 'semver';
 
-import {getDistTags}                                                                 from './list';
+import {getDistTags}                                                                                from './list';
 
 // eslint-disable-next-line arca/no-default-export
 export default class NpmTagAddCommand extends BaseCommand {
@@ -50,20 +50,32 @@ export default class NpmTagAddCommand extends BaseCommand {
       stdout: this.context.stdout,
     }, async report => {
       const distTags = await getDistTags(descriptor, configuration);
-      if (Object.hasOwn(distTags, this.tag) && distTags[this.tag] === version)
+      if (Object.prototype.hasOwnProperty.call(distTags, this.tag) && distTags[this.tag] === version)
         report.reportWarning(MessageName.UNNAMED, `Tag ${prettyTag} is already set to version ${prettyVersion}`);
 
-      const url = `/-/package${npmHttpUtils.getIdentUrl(descriptor)}/dist-tags/${encodeURIComponent(this.tag)}`;
+      try {
+        const url = `/-/package${npmHttpUtils.getIdentUrl(descriptor)}/dist-tags/${encodeURIComponent(this.tag)}`;
 
-      await npmHttpUtils.put(url, version, {
-        configuration,
-        registry,
-        ident: descriptor,
-        jsonRequest: true,
-        jsonResponse: true,
-      });
+        await npmHttpUtils.put(url, version, {
+          configuration,
+          registry,
+          ident: descriptor,
+          jsonRequest: true,
+          jsonResponse: true,
+        });
+      } catch (error) {
+        if (error.name !== `HTTPError`) {
+          throw error;
+        } else {
+          const summary = error.response.body?.error ?? `The remote server answered with HTTP ${error.response.statusCode} ${error.response.statusMessage}`;
 
-      report.reportInfo(MessageName.UNNAMED, `Tag ${prettyTag} added to version ${prettyVersion} of package ${prettyIdent}`);
+          report.reportError(MessageName.NETWORK_ERROR, new EnhancedError(error, {summary}).toString());
+        }
+      }
+
+      if (!report.hasErrors()) {
+        report.reportInfo(MessageName.UNNAMED, `Tag ${prettyTag} added to version ${prettyVersion} of package ${prettyIdent}`);
+      }
     });
 
     return report.exitCode();

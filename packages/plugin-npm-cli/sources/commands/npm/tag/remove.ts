@@ -1,9 +1,9 @@
-import {BaseCommand, WorkspaceRequiredError}                                         from '@yarnpkg/cli';
-import {Configuration, Project, structUtils, MessageName, StreamReport, formatUtils} from '@yarnpkg/core';
-import {npmHttpUtils, npmConfigUtils}                                                from '@yarnpkg/plugin-npm';
-import {Command, Option, Usage, UsageError}                                          from 'clipanion';
+import {BaseCommand, WorkspaceRequiredError}                                                        from '@yarnpkg/cli';
+import {Configuration, Project, structUtils, MessageName, StreamReport, formatUtils, EnhancedError} from '@yarnpkg/core';
+import {npmHttpUtils, npmConfigUtils}                                                               from '@yarnpkg/plugin-npm';
+import {Command, Option, Usage, UsageError}                                                         from 'clipanion';
 
-import {getDistTags}                                                                 from './list';
+import {getDistTags}                                                                                from './list';
 
 // eslint-disable-next-line arca/no-default-export
 export default class NpmTagRemoveCommand extends BaseCommand {
@@ -44,23 +44,35 @@ export default class NpmTagRemoveCommand extends BaseCommand {
     const prettyIdent = formatUtils.pretty(configuration, ident, formatUtils.Type.IDENT);
 
     const distTags = await getDistTags(ident, configuration);
-    if (!Object.hasOwn(distTags, this.tag))
+    if (!Object.prototype.hasOwnProperty.call(distTags, this.tag))
       throw new UsageError(`${prettyTag} is not a tag of package ${prettyIdent}`);
 
     const report = await StreamReport.start({
       configuration,
       stdout: this.context.stdout,
     }, async report => {
-      const url = `/-/package${npmHttpUtils.getIdentUrl(ident)}/dist-tags/${encodeURIComponent(this.tag)}`;
+      try {
+        const url = `/-/package${npmHttpUtils.getIdentUrl(ident)}/dist-tags/${encodeURIComponent(this.tag)}`;
 
-      await npmHttpUtils.del(url, {
-        configuration,
-        registry,
-        ident,
-        jsonResponse: true,
-      });
+        await npmHttpUtils.del(url, {
+          configuration,
+          registry,
+          ident,
+          jsonResponse: true,
+        });
+      } catch (error) {
+        if (error.name !== `HTTPError`) {
+          throw error;
+        } else {
+          const summary = error.response.body?.error ?? `The remote server answered with HTTP ${error.response.statusCode} ${error.response.statusMessage}`;
 
-      report.reportInfo(MessageName.UNNAMED, `Tag ${prettyTag} removed from package ${prettyIdent}`);
+          report.reportError(MessageName.NETWORK_ERROR, new EnhancedError(error, {summary}).toString());
+        }
+      }
+
+      if (!report.hasErrors()) {
+        report.reportInfo(MessageName.UNNAMED, `Tag ${prettyTag} removed from package ${prettyIdent}`);
+      }
     });
 
     return report.exitCode();
