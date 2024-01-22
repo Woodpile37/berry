@@ -1,84 +1,13 @@
-import {Configuration, nodeUtils}                                              from '@yarnpkg/core';
-import {FakeFS, PortablePath, NodeFS, ppath, xfs, npath, constants, statUtils} from '@yarnpkg/fslib';
-import {ZipCompression, ZipFS}                                                 from '@yarnpkg/libzip';
-import {PassThrough, Readable}                                                 from 'stream';
-import tar                                                                     from 'tar';
+import {Filename, FakeFS, PortablePath, NodeFS, statUtils, ppath, xfs, npath, constants} from '@yarnpkg/fslib';
+import {ZipCompression, ZipFS}                                                           from '@yarnpkg/libzip';
+import {PassThrough, Readable}                                                           from 'stream';
+import tar                                                                               from 'tar';
 
-import {AsyncPool, TaskPool, WorkerPool}                                       from './TaskPool';
-import * as miscUtils                                                          from './miscUtils';
-import {getContent as getZipWorkerSource}                                      from './worker-zip';
+import {WorkerPool}                                                                      from './WorkerPool';
+import * as miscUtils                                                                    from './miscUtils';
+import {getContent as getZipWorkerSource, ConvertToZipPayload}                           from './worker-zip';
 
-export type ConvertToZipPayload = {
-  tmpFile: PortablePath;
-  tgz: Buffer | Uint8Array;
-  extractBufferOpts: ExtractBufferOptions;
-  compressionLevel: ZipCompression;
-};
-
-export type ZipWorkerPool = TaskPool<ConvertToZipPayload, PortablePath>;
-
-function createTaskPool(poolMode: string, poolSize: number): ZipWorkerPool {
-  switch (poolMode) {
-    case `async`:
-      return new AsyncPool(convertToZipWorker, {poolSize});
-
-    case `workers`:
-      return new WorkerPool(getZipWorkerSource(), {poolSize});
-
-    default: {
-      throw new Error(`Assertion failed: Unknown value ${poolMode} for taskPoolMode`);
-    }
-  }
-}
-
-let defaultWorkerPool: ZipWorkerPool | undefined;
-
-export function getDefaultTaskPool() {
-  if (typeof defaultWorkerPool === `undefined`)
-    defaultWorkerPool = createTaskPool(`workers`, nodeUtils.availableParallelism());
-
-  return defaultWorkerPool;
-}
-
-const workerPools = new WeakMap<Configuration, ZipWorkerPool>();
-
-export function getTaskPoolForConfiguration(configuration: Configuration | void): ZipWorkerPool {
-  if (typeof configuration === `undefined`)
-    return getDefaultTaskPool();
-
-  return miscUtils.getFactoryWithDefault(workerPools, configuration, () => {
-    const poolMode = configuration.get(`taskPoolMode`);
-    const poolSize = configuration.get(`taskPoolConcurrency`);
-
-    switch (poolMode) {
-      case `async`:
-        return new AsyncPool(convertToZipWorker, {poolSize});
-
-      case `workers`:
-        return new WorkerPool(getZipWorkerSource(), {poolSize});
-
-      default: {
-        throw new Error(`Assertion failed: Unknown value ${poolMode} for taskPoolMode`);
-      }
-    }
-  });
-}
-
-export async function convertToZipWorker(data: ConvertToZipPayload) {
-  const {tmpFile, tgz, compressionLevel, extractBufferOpts} = data;
-
-  const zipFs = new ZipFS(tmpFile, {create: true, level: compressionLevel, stats: statUtils.makeDefaultStats()});
-
-  // Buffers sent through Node are turned into regular Uint8Arrays
-  const tgzBuffer = Buffer.from(tgz.buffer, tgz.byteOffset, tgz.byteLength);
-  await extractArchiveTo(tgzBuffer, zipFs, extractBufferOpts);
-
-  zipFs.saveAndClose();
-
-  return tmpFile;
-}
-
-export interface MakeArchiveFromDirectoryOptions {
+interface MakeArchiveFromDirectoryOptions {
   baseFs?: FakeFS<PortablePath>;
   prefixPath?: PortablePath | null;
   compressionLevel?: ZipCompression;
@@ -91,7 +20,7 @@ export async function makeArchiveFromDirectory(source: PortablePath, {baseFs = n
     zipFs = new ZipFS(null, {level: compressionLevel});
   } else {
     const tmpFolder = await xfs.mktempPromise();
-    const tmpFile = ppath.join(tmpFolder, `archive.zip`);
+    const tmpFile = ppath.join(tmpFolder, `archive.zip` as Filename);
 
     zipFs = new ZipFS(tmpFile, {create: true, level: compressionLevel});
   }
@@ -103,34 +32,39 @@ export async function makeArchiveFromDirectory(source: PortablePath, {baseFs = n
 }
 
 export interface ExtractBufferOptions {
+  compressionLevel?: ZipCompression;
   prefixPath?: PortablePath;
   stripComponents?: number;
 }
 
-export interface ConvertToZipOptions extends ExtractBufferOptions {
-  configuration?: Configuration;
-  compressionLevel?: ZipCompression;
-  taskPool?: ZipWorkerPool;
+let workerPool: WorkerPool<ConvertToZipPayload, PortablePath> | null;
+
+export async function convertToZipNoWorker(tgz: Buffer, opts: ExtractBufferOptions) {
+  const tmpFolder = await xfs.mktempPromise();
+  const tmpFile = ppath.join(tmpFolder, `archive.zip` as Filename);
+
+  const destFs = new ZipFS(tmpFile, {create: true, level: opts.compressionLevel, stats: statUtils.makeDefaultStats()});
+
+  // Buffers sent through Node are turned into regular Uint8Arrays
+  await extractArchiveTo(tgz, destFs, opts);
+
+  return destFs;
 }
 
-export async function convertToZip(tgz: Buffer, opts: ConvertToZipOptions = {}) {
+export async function convertToZipViaWorker(tgz: Buffer, opts: ExtractBufferOptions) {
   const tmpFolder = await xfs.mktempPromise();
-  const tmpFile = ppath.join(tmpFolder, `archive.zip`);
+  const tmpFile = ppath.join(tmpFolder, `archive.zip` as Filename);
 
-  const compressionLevel = opts.compressionLevel
-    ?? opts.configuration?.get(`compressionLevel`)
-    ?? `mixed`;
+  workerPool ||= new WorkerPool(getZipWorkerSource());
 
-  const extractBufferOpts: ExtractBufferOptions = {
-    prefixPath: opts.prefixPath,
-    stripComponents: opts.stripComponents,
-  };
-
-  const taskPool = opts.taskPool ?? getTaskPoolForConfiguration(opts.configuration);
-  await taskPool.run({tmpFile, tgz, compressionLevel, extractBufferOpts});
+  await workerPool.run({tmpFile, tgz, opts});
 
   return new ZipFS(tmpFile, {level: opts.compressionLevel});
 }
+
+export const convertToZip = process.env.YARN_EXPERIMENT_RUN_IN_BAND === `1`
+  ? convertToZipNoWorker
+  : convertToZipViaWorker;
 
 async function * parseTar(tgz: Buffer) {
   // @ts-expect-error - Types are wrong about what this function returns
