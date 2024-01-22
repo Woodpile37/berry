@@ -9,9 +9,18 @@
   "license": "BSD-2-Clause",
   "bin": "./sources/boot-cli-dev.js",
   "dependencies": {
+<<<<<<< HEAD
     "@yarnpkg/cli": "workspace:^",
     "@yarnpkg/core": "workspace:^",
     "@yarnpkg/fslib": "workspace:^",
+=======
+    "@babel/core": "^7.10.2",
+    "@yarnpkg/cli": "workspace:^2.4.3",
+    "@yarnpkg/core": "workspace:^2.4.0",
+    "@yarnpkg/fslib": "workspace:^2.4.0",
+    "@yarnpkg/pnpify": "workspace:^2.4.0",
+    "babel-loader": "^8.1.0",
+>>>>>>> upstream/cherry-pick/2.4
     "chalk": "^3.0.0",
 <<<<<<< HEAD
     "clipanion": "^3.2.0-rc.10",

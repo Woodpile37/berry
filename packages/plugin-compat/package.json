@@ -1,11 +1,15 @@
 {
   "name": "@yarnpkg/plugin-compat",
 <<<<<<< HEAD
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
   "stableVersion": "3.1.4",
 =======
   "version": "3.1.16",
 >>>>>>> upstream/cherry-pick/next-release
+=======
+  "version": "2.2.1",
+>>>>>>> upstream/cherry-pick/2.4
   "license": "BSD-2-Clause",
   "main": "./sources/index.ts",
   "peerDependencies": {
@@ -18,6 +22,7 @@
   "devDependencies": {
     "@types/lodash-es": "4.17.4",
     "@types/resolve": "^1.17.1",
+<<<<<<< HEAD
     "@yarnpkg/cli": "workspace:^",
     "@yarnpkg/core": "workspace:^",
     "@yarnpkg/fslib": "workspace:^",
@@ -26,6 +31,16 @@
     "@yarnpkg/plugin-patch": "workspace:^",
     "resolve": "^1.17.0",
     "semver": "^7.5.2"
+=======
+    "@yarnpkg/cli": "workspace:^2.4.3",
+    "@yarnpkg/core": "workspace:^2.4.0",
+    "@yarnpkg/fslib": "workspace:^2.4.0",
+    "@yarnpkg/monorepo": "workspace:0.0.0",
+    "@yarnpkg/plugin-npm": "workspace:^2.4.0",
+    "@yarnpkg/plugin-patch": "workspace:^2.1.2",
+    "resolve": "^1.17.0",
+    "semver": "^7.1.2"
+>>>>>>> upstream/cherry-pick/2.4
   },
   "repository": {
     "type": "git",

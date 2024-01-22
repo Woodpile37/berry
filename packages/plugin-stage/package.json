@@ -18,6 +18,7 @@
 >>>>>>> upstream/cherry-pick/next-release
   },
   "peerDependencies": {
+<<<<<<< HEAD
     "@yarnpkg/cli": "workspace:^",
     "@yarnpkg/core": "workspace:^"
   },
@@ -25,6 +26,16 @@
     "@yarnpkg/builder": "workspace:^",
     "@yarnpkg/cli": "workspace:^",
     "@yarnpkg/core": "workspace:^"
+=======
+    "@yarnpkg/cli": "^2.4.3",
+    "@yarnpkg/core": "^2.4.0"
+  },
+  "devDependencies": {
+    "@yarnpkg/builder": "workspace:^2.1.3",
+    "@yarnpkg/cli": "workspace:^2.4.3",
+    "@yarnpkg/core": "workspace:^2.4.0",
+    "typescript": "4.1.0-beta"
+>>>>>>> upstream/cherry-pick/2.4
   },
   "scripts": {
     "postpack": "rm -rf lib",

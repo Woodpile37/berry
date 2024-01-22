@@ -12,10 +12,17 @@
     "@types/semver": "^7.1.0",
     "@types/serve-static": "1.13.3",
     "@types/tar-fs": "^1.16.1",
+<<<<<<< HEAD
     "@types/uuid": "^8",
     "@yarnpkg/core": "workspace:^",
     "@yarnpkg/fslib": "workspace:^",
     "@yarnpkg/parsers": "workspace:^",
+=======
+    "@yarnpkg/cli": "workspace:^2.4.3",
+    "@yarnpkg/core": "workspace:^2.4.0",
+    "@yarnpkg/fslib": "workspace:^2.4.0",
+    "@yarnpkg/parsers": "workspace:^2.3.0",
+>>>>>>> upstream/cherry-pick/2.4
     "finalhandler": "^1.1.2",
     "invariant": "^2.2.4",
     "klaw": "^2.1.1",

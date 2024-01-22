@@ -12,6 +12,7 @@ const TMP_DIR = `/tmp/ts-builds`;
 
 const IGNORED_VERSIONS = new Set([
   `3.3.3333`,
+<<<<<<< HEAD
   `3.7.0-beta`,
   `3.9.0-beta`,
   `4.0.0-beta`,
@@ -19,6 +20,8 @@ const IGNORED_VERSIONS = new Set([
   `4.4.0-beta`,
   // Broken publish - missing files
   `4.9.0-beta`,
+=======
+>>>>>>> upstream/cherry-pick/2.4
 ]);
 
 const SLICES = [
@@ -67,20 +70,29 @@ const SLICES = [
   // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.2
   {
     from: `8e0e8703b9c95013aec7819e4593d099cdf7763a`,
+<<<<<<< HEAD
     to: `178a67b4663d80b0fcbea542e7255b4499b51708`,
+=======
+    to: `545d5a8c5409dac447a668d4e7d315702fd115d6`,
+>>>>>>> upstream/cherry-pick/2.4
     onto: `bfc55b5762443c37ecdef08a3b5a4e057b4d1e85`,
     range: `>=4.2 <4.3`,
   },
   // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.3
   {
     from: `530aad19e4ac19d35cb6b200168c91ce86cb0050`,
+<<<<<<< HEAD
     to: `ffa54c5a104e7940b5c23666ddffbf44878f9d9f`,
+=======
+    to: `6d7d4d2ce0df8e65a2c86a20c014c053ef530ea3`,
+>>>>>>> upstream/cherry-pick/2.4
     onto: `28e3e6ff2f49f1dbf06d31809ec73dbe42f1aa63`,
     range: `>=4.3 <4.4`,
   },
   // https://github.com/merceyz/TypeScript/tree/merceyz/pnp-4.4
   {
     from: `793bfe32745bf6797924354b0fd5be62cf01950c`,
+<<<<<<< HEAD
     to: `20ffca2f3c48591c971e6606a55b7b1820d8a64f`,
     onto: `a10409ccaa3604790dc45f52ef0402eb49015dcf`,
     range: `>=4.4 <4.5`,
@@ -203,6 +215,11 @@ const SLICES = [
     to: `9fb5c1cac14376fe615dfd48ddbe4e97c2e6ac90`,
     onto: `88f80c75e1a4ab6aaec605aa4ec6281b87871ff0`,
     range: `>=5.3.1-rc`,
+=======
+    to: `88a10595c32309fc26eb4a7f5a858d98e883dae0`,
+    onto: `a10409ccaa3604790dc45f52ef0402eb49015dcf`,
+    range: `>=4.4`,
+>>>>>>> upstream/cherry-pick/2.4
   },
 ];
 
@@ -237,6 +254,7 @@ async function execFile(binary, args, {checkExitCode = true, ...opts} = {}) {
   console.log(`${binary} ${args.join(` `)}`);
 
   return new Promise((resolve, reject) => {
+<<<<<<< HEAD
     const child = cp.spawn(binary, args, {
       ...opts,
       env: {
@@ -244,6 +262,9 @@ async function execFile(binary, args, {checkExitCode = true, ...opts} = {}) {
         NODE_OPTIONS: undefined,
       },
     });
+=======
+    const child = cp.spawn(binary, args, opts);
+>>>>>>> upstream/cherry-pick/2.4
 
     const outChunks = [];
     const allChunks = [];
@@ -281,15 +302,36 @@ async function fetchVersions(range) {
 
     relevantVersions = [];
 
+<<<<<<< HEAD
+=======
+    let highestPre;
+>>>>>>> upstream/cherry-pick/2.4
     for (const version of allVersions) {
       if (IGNORED_VERSIONS.has(version))
         continue;
 
       const pre = semver.prerelease(version);
+<<<<<<< HEAD
       if (pre && pre[0] !== `beta` && pre[0] !== `rc`)
         continue;
 
       relevantVersions.push(version);
+=======
+      if (pre) {
+        if (pre[0] !== `beta` && pre[0] !== `rc`)
+          continue;
+
+        if (!highestPre || semver.gt(version, highestPre)) {
+          highestPre = version;
+        }
+      } else {
+        relevantVersions.push(version);
+      }
+    }
+
+    if (highestPre) {
+      relevantVersions.push(highestPre);
+>>>>>>> upstream/cherry-pick/2.4
     }
   }
 
@@ -361,7 +403,11 @@ async function buildRepository({from, to, onto}) {
     }
   }
 
+<<<<<<< HEAD
   await execFile(fs.existsSync(`${TS_REPO}/node_modules/.bin/hereby`) ? `./node_modules/.bin/hereby` : `./node_modules/.bin/gulp`, [`local`, `LKG`], TS_REPO_SPAWN);
+=======
+  await execFile(`./node_modules/.bin/gulp`, [`local`, `LKG`], TS_REPO_SPAWN);
+>>>>>>> upstream/cherry-pick/2.4
 
   // It seems that in some circumstances the build can produce incorrect artifacts. When
   // that happens, the final binary is very small. We try to detect that.
@@ -381,11 +427,16 @@ async function buildRepository({from, to, onto}) {
 async function run({from, to, onto, range}) {
   const hash = crypto
     .createHash(`md5`)
+<<<<<<< HEAD
     .update(JSON.stringify({from, to, onto}))
+=======
+    .update(JSON.stringify({from, to, onto, range}))
+>>>>>>> upstream/cherry-pick/2.4
     .digest(`hex`);
 
   const patchFile = path.join(__dirname, `patch-${hash}.diff`);
   if (fs.existsSync(patchFile)) {
+<<<<<<< HEAD
     const originalContent = await fs.promises.readFile(patchFile, `utf8`);
     const updatedContent = originalContent.replace(/^semver exclusivity .*\n/gm, `semver exclusivity ${range}\n`);
     if (originalContent !== updatedContent) {
@@ -396,6 +447,10 @@ async function run({from, to, onto, range}) {
       console.log(`Skipping; patch ${path.basename(patchFile)} already exists`);
       return {patchFile, content: originalContent};
     }
+=======
+    console.log(`Skipping; file ${path.basename(patchFile)} already exists`);
+    return patchFile;
+>>>>>>> upstream/cherry-pick/2.4
   }
 
   await cloneRepository();
@@ -413,10 +468,17 @@ async function run({from, to, onto, range}) {
 
   await fs.promises.writeFile(patchFile, patch);
 
+<<<<<<< HEAD
   return {patchFile, content: patch};
 }
 
 async function validate(version, patch) {
+=======
+  return patchFile;
+}
+
+async function validate(version, patchFile) {
+>>>>>>> upstream/cherry-pick/2.4
   const tmpDir = path.join(TMP_DIR, `v${version}`);
   const tarball = path.join(tmpDir, `package.tgz`);
 
@@ -430,14 +492,24 @@ async function validate(version, patch) {
   if (!fs.existsSync(path.join(tmpDir, `package`)))
     await execFile(`tar`, [`xvf`, tarball], {cwd: tmpDir});
 
+<<<<<<< HEAD
   const patchContent = patch.content.replace(/^semver exclusivity .*\n/gm, ``);
   await fs.promises.writeFile(path.join(tmpDir, `patch.diff`), patchContent);
+=======
+  let patch = await fs.promises.readFile(patchFile, `utf8`);
+  patch = patch.replace(/^semver .*\n/gm, ``);
+  await fs.promises.writeFile(path.join(tmpDir, `patch.diff`), patch);
+>>>>>>> upstream/cherry-pick/2.4
 
   await execFile(`git`, [`apply`, `--check`, `../patch.diff`], {cwd: path.join(tmpDir, `package`)});
 }
 
 async function main() {
+<<<<<<< HEAD
   const patches = [];
+=======
+  const patchFiles = [];
+>>>>>>> upstream/cherry-pick/2.4
   let isFirst = true;
 
   for (const slice of SLICES) {
@@ -449,11 +521,16 @@ async function main() {
     console.log(`## Slice: ${JSON.stringify(slice)}`);
     console.log();
 
+<<<<<<< HEAD
     const patch = await run(slice);
+=======
+    const patchFile = await run(slice);
+>>>>>>> upstream/cherry-pick/2.4
     const versions = await fetchVersions(slice.range);
 
     for (const version of versions) {
       console.log(`Validating ${version}...`);
+<<<<<<< HEAD
       await validate(version, patch);
     }
 
@@ -462,12 +539,30 @@ async function main() {
 
   const aggregatePatchFile = path.join(TMP_DIR, `patch.diff`);
   await fs.promises.writeFile(aggregatePatchFile, patches.map(patch => patch.content).join(``));
+=======
+      await validate(version, patchFile);
+    }
+
+    patchFiles.push(patchFile);
+  }
+
+  const patches = await Promise.all(patchFiles.map(patchFile => {
+    return fs.promises.readFile(patchFile, `utf8`);
+  }));
+
+  const aggregatePatchFile = path.join(TMP_DIR, `patch.diff`);
+  await fs.promises.writeFile(aggregatePatchFile, patches.join(``));
+>>>>>>> upstream/cherry-pick/2.4
 
   const jsPatchFile = path.join(__dirname, `../../sources/patches/typescript.patch.ts`);
   await execFile(`node`, [path.join(__dirname, `../createPatch.js`), aggregatePatchFile, jsPatchFile]);
 
   // Remove old patches
+<<<<<<< HEAD
   const patchFilesSet = new Set(patches.map(patch => patch.patchFile));
+=======
+  const patchFilesSet = new Set(patchFiles);
+>>>>>>> upstream/cherry-pick/2.4
   for await (const {name: patchName} of await fs.promises.opendir(__dirname)) {
     if (patchName.endsWith(`.diff`) && !patchFilesSet.has(path.join(__dirname, patchName))) {
       console.log(`Cleanup; file ${patchName} not in use`);

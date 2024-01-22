@@ -23,6 +23,7 @@
     "tslib": "^2.4.0"
   },
   "peerDependencies": {
+<<<<<<< HEAD
     "@yarnpkg/cli": "workspace:^",
     "@yarnpkg/core": "workspace:^"
   },
@@ -30,6 +31,15 @@
     "@types/micromatch": "^4.0.1",
     "@yarnpkg/cli": "workspace:^",
     "@yarnpkg/core": "workspace:^"
+=======
+    "@yarnpkg/cli": "^2.4.3",
+    "@yarnpkg/core": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/micromatch": "^4.0.1",
+    "@yarnpkg/cli": "workspace:^2.4.3",
+    "@yarnpkg/core": "workspace:^2.4.0"
+>>>>>>> upstream/cherry-pick/2.4
   },
   "repository": {
     "type": "git",

@@ -1,6 +1,7 @@
 {
   "name": "@yarnpkg/cli",
 <<<<<<< HEAD
+<<<<<<< HEAD
   "version": "4.0.0-rc.14",
   "stableVersion": "3.2.2",
 =======
@@ -45,6 +46,36 @@
     "typanion": "^3.3.0"
 =======
     "clipanion": "3.2.0-rc.4",
+=======
+  "version": "2.4.3",
+  "license": "BSD-2-Clause",
+  "main": "./sources/index.ts",
+  "dependencies": {
+    "@yarnpkg/core": "workspace:^2.4.0",
+    "@yarnpkg/fslib": "workspace:^2.4.0",
+    "@yarnpkg/libzip": "workspace:^2.2.1",
+    "@yarnpkg/parsers": "workspace:^2.3.0",
+    "@yarnpkg/plugin-compat": "workspace:^2.2.1",
+    "@yarnpkg/plugin-dlx": "workspace:^2.1.4",
+    "@yarnpkg/plugin-essentials": "workspace:^2.4.0",
+    "@yarnpkg/plugin-file": "workspace:^2.2.0",
+    "@yarnpkg/plugin-git": "workspace:^2.3.0",
+    "@yarnpkg/plugin-github": "workspace:^2.1.2",
+    "@yarnpkg/plugin-http": "workspace:^2.1.2",
+    "@yarnpkg/plugin-init": "workspace:^2.2.2",
+    "@yarnpkg/plugin-link": "workspace:^2.1.1",
+    "@yarnpkg/plugin-node-modules": "workspace:^2.3.0",
+    "@yarnpkg/plugin-npm": "workspace:^2.4.0",
+    "@yarnpkg/plugin-npm-cli": "workspace:^2.3.0",
+    "@yarnpkg/plugin-pack": "workspace:^2.2.3",
+    "@yarnpkg/plugin-patch": "workspace:^2.1.2",
+    "@yarnpkg/plugin-pnp": "workspace:^2.4.0",
+    "@yarnpkg/shell": "workspace:^2.4.1",
+    "chalk": "^3.0.0",
+    "ci-info": "^2.0.0",
+    "clipanion": "^2.6.2",
+    "fromentries": "^1.2.0",
+>>>>>>> upstream/cherry-pick/2.4
     "semver": "^7.1.2",
     "string.prototype.replaceall": "^1.0.4",
     "tslib": "^1.13.0",
