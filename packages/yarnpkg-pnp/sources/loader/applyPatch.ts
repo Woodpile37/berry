@@ -1,7 +1,7 @@
 import {FakeFS, PosixFS, npath, patchFs, PortablePath, NativePath, VirtualFS} from '@yarnpkg/fslib';
 import fs                                                                     from 'fs';
-import {Module}                                                               from 'module';
-import {URL, fileURLToPath}                                                   from 'url';
+import {Module, isBuiltin}                                                    from 'module';
+import {fileURLToPath}                                                        from 'url';
 
 import {PnpApi}                                                               from '../types';
 
@@ -13,14 +13,6 @@ export type ApplyPatchOptions = {
   fakeFs: FakeFS<PortablePath>;
   manager: Manager;
 };
-
-declare global {
-  module NodeJS {
-    interface Process {
-      dlopen: (module: Object, filename: string, flags?: number) => void;
-    }
-  }
-}
 
 declare global {
   module NodeJS {
@@ -135,20 +127,14 @@ export function applyPatch(pnpapi: PnpApi, opts: ApplyPatchOptions) {
   const originalModuleResolveFilename = Module._resolveFilename;
 
   Module._resolveFilename = function(request: string, parent: (NodeModule & {pnpApiPath?: PortablePath}) | null | undefined, isMain: boolean, options?: {[key: string]: any}) {
-    if (nodeUtils.isBuiltinModule(request))
+    if (isBuiltin(request))
       return request;
 
     if (!enableNativeHooks)
       return originalModuleResolveFilename.call(Module, request, parent, isMain, options);
 
     if (options && options.plugnplay === false) {
-      const {plugnplay, ...rest} = options;
-
-      // Workaround a bug present in some version of Node (now fixed)
-      // https://github.com/nodejs/node/pull/28078
-      const forwardedOptions = Object.keys(rest).length > 0
-        ? rest
-        : undefined;
+      const {plugnplay, ...forwardedOptions} = options;
 
       try {
         enableNativeHooks = false;

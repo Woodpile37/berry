@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+
 // To extend this list, please open a PR on the relevant repository that adds
 // the same fields as you add here and prefix your changes with the relevant
 // PR url.
@@ -226,12 +228,8 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
     },
   }],
   // https://github.com/tajo/react-portal/pull/233
-<<<<<<< HEAD
-  [`react-portal@*`, {
-=======
   // https://github.com/tajo/react-portal/commit/daf85792c2fce25a3481b6f9132ef61a110f3d78
   [`react-portal@<4.2.2`, {
->>>>>>> upstream/cherry-pick/next-release
     peerDependencies: {
       'react-dom': `^15.0.0-0 || ^16.0.0-0 || ^17.0.0-0`,
     },
@@ -406,11 +404,7 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
     },
   }],
   // https://github.com/tj/consolidate.js/pull/339
-<<<<<<< HEAD
-  [`consolidate@*`, {
-=======
   [`consolidate@<=0.16.0`, {
->>>>>>> upstream/cherry-pick/next-release
     peerDependencies: {
       velocityjs: `^2.0.1`,
       tinyliquid: `^0.2.34`,
@@ -545,21 +539,13 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
     },
   }],
   // https://github.com/salesforce-ux/scss-parser/pull/43
-<<<<<<< HEAD
-  [`scss-parser@*`, {
-=======
   [`scss-parser@<=1.0.5`, {
->>>>>>> upstream/cherry-pick/next-release
     dependencies: {
       lodash: `^4.17.21`,
     },
   }],
   // https://github.com/salesforce-ux/query-ast/pull/25
-<<<<<<< HEAD
-  [`query-ast@*`, {
-=======
   [`query-ast@<1.0.5`, {
->>>>>>> upstream/cherry-pick/next-release
     dependencies: {
       lodash: `^4.17.21`,
     },
@@ -785,10 +771,10 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
       acorn: `^8.5.0`,
     },
   }],
-  // https://github.com/facebook/create-react-app/pull/11751
-  [`babel-preset-react-app@10.0.x`, {
+  // https://github.com/facebook/create-react-app/pull/12364
+  [`babel-preset-react-app@10.0.x <10.0.2`, {
     dependencies: {
-      '@babel/plugin-proposal-private-property-in-object': `^7.16.0`,
+      '@babel/plugin-proposal-private-property-in-object': `^7.16.7`,
     },
   }],
   // https://github.com/facebook/create-react-app/pull/11751
@@ -817,11 +803,7 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
     },
   }],
   // https://github.com/wemaintain/auto-relay/pull/95
-<<<<<<< HEAD
-  [`auto-relay@*`, {
-=======
   [`auto-relay@<=0.14.0`, {
->>>>>>> upstream/cherry-pick/next-release
     peerDependencies: {
       'reflect-metadata': `^0.1.13`,
     },
@@ -876,7 +858,8 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
     },
   }],
   // https://github.com/jdesboeufs/connect-mongo/pull/458
-  [`connect-mongo@*`, {
+  // https://github.com/jdesboeufs/connect-mongo/commit/f462a2598d1dea0722a89e1f101937d427462458
+  [`connect-mongo@<5.0.0`, {
     peerDependencies: {
       'express-session': `^1.17.1`,
     },
@@ -914,13 +897,7 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
       webpack: `>=4`,
     },
     peerDependenciesMeta: {
-<<<<<<< HEAD
-      typescript: {
-        optional: true,
-      },
-=======
       typescript: optionalPeerDep,
->>>>>>> upstream/cherry-pick/next-release
     },
   }],
   // https://github.com/asyncapi/asyncapi-react/pull/614
@@ -930,8 +907,6 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
       'react-dom': `>=16.8.0`,
     },
   }],
-<<<<<<< HEAD
-=======
   // https://github.com/xojs/xo/pull/678
   [`xo@*`, {
     peerDependencies: {
@@ -1000,5 +975,16 @@ export const packageExtensions: Array<[string, PackageExtensionData]> = [
       graphql: `^14.2.0 || ^15.0.0 || ^16.0.0`,
     },
   }],
->>>>>>> upstream/cherry-pick/next-release
+  // https://github.com/vuetifyjs/vuetify-loader/commit/6634db3218dcc706db1c5c9e90f338ce76e9fff3
+  [`vite-plugin-vuetify@<=1.0.2`, {
+    peerDependencies: {
+      vue: `^3.0.0`,
+    },
+  }],
+  // https://github.com/vuetifyjs/vuetify-loader/commit/6634db3218dcc706db1c5c9e90f338ce76e9fff3
+  [`webpack-plugin-vuetify@<=2.0.1`, {
+    peerDependencies: {
+      vue: `^3.2.6`,
+    },
+  }],
 ];
