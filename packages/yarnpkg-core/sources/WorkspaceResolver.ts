@@ -60,7 +60,7 @@ export class WorkspaceResolver implements Resolver {
 
       version: workspace.manifest.version || `0.0.0`,
 
-      languageName: `unknown`,
+      linkerName: `unknown`,
       linkType: LinkType.SOFT,
 
       conditions: null,

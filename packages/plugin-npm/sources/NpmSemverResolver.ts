@@ -159,7 +159,7 @@ export class NpmSemverResolver implements Resolver {
 
       version,
 
-      languageName: `node`,
+      linkerName: manifest.linkerName ?? `node`,
       linkType: LinkType.HARD,
 
       conditions: manifest.getConditions(),

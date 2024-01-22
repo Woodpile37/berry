@@ -1,4 +1,4 @@
-import {miscUtils, structUtils, hashUtils, Package}      from '@yarnpkg/core';
+import {miscUtils, structUtils, hashUtils}               from '@yarnpkg/core';
 import {LinkType}                                        from '@yarnpkg/core';
 import {Descriptor, Locator, Manifest}                   from '@yarnpkg/core';
 import {Resolver, ResolveOptions, MinimalResolveOptions} from '@yarnpkg/core';
@@ -7,7 +7,7 @@ import {FILE_REGEXP, PROTOCOL}                           from './constants';
 import * as fileUtils                                    from './fileUtils';
 
 // We use this for the folders to be regenerated without bumping the whole cache
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 1;
 
 export class FileResolver implements Resolver {
   supportsDescriptor(descriptor: Descriptor, opts: MinimalResolveOptions) {
@@ -41,7 +41,7 @@ export class FileResolver implements Resolver {
   }
 
   getResolutionDependencies(descriptor: Descriptor, opts: MinimalResolveOptions) {
-    return {};
+    return [];
   }
 
   async getCandidates(descriptor: Descriptor, dependencies: unknown, opts: ResolveOptions) {
@@ -49,6 +49,7 @@ export class FileResolver implements Resolver {
       throw new Error(`Assertion failed: This resolver cannot be used unless a fetcher is configured`);
 
     const {path, parentLocator} = fileUtils.parseSpec(descriptor.range);
+
     if (parentLocator === null)
       throw new Error(`Assertion failed: The descriptor should have been bound`);
 
@@ -61,23 +62,14 @@ export class FileResolver implements Resolver {
           params: {
             locator: structUtils.stringifyLocator(parentLocator),
           },
-        }),
+        })
       ),
-      {protocol: PROTOCOL, fetchOptions: opts.fetchOptions},
+      {protocol: PROTOCOL, fetchOptions: opts.fetchOptions}
     );
 
     const folderHash = hashUtils.makeHash(`${CACHE_VERSION}`, archiveBuffer).slice(0, 6);
 
-    return [fileUtils.makeLocator(descriptor, {parentLocator, path, hash: folderHash, protocol: PROTOCOL})];
-  }
-
-  async getSatisfying(descriptor: Descriptor, dependencies: Record<string, Package>, locators: Array<Locator>, opts: ResolveOptions) {
-    const [locator] = await this.getCandidates(descriptor, dependencies, opts);
-
-    return {
-      locators: locators.filter(candidate => candidate.locatorHash === locator.locatorHash),
-      sorted: false,
-    };
+    return [fileUtils.makeLocator(descriptor, {parentLocator, path, folderHash, protocol: PROTOCOL})];
   }
 
   async resolve(locator: Locator, opts: ResolveOptions) {
@@ -93,14 +85,12 @@ export class FileResolver implements Resolver {
     return {
       ...locator,
 
-      version: manifest.version || `0.0.0`,
+      version: manifest.version ?? `0.0.0`,
 
-      languageName: manifest.languageName || opts.project.configuration.get(`defaultLanguageName`),
+      linkerName: manifest.linkerName ?? opts.project.configuration.get<string>(`defaultLinkerName`),
       linkType: LinkType.HARD,
 
-      conditions: manifest.getConditions(),
-
-      dependencies: opts.project.configuration.normalizeDependencyMap(manifest.dependencies),
+      dependencies: manifest.dependencies,
       peerDependencies: manifest.peerDependencies,
 
       dependenciesMeta: manifest.dependenciesMeta,
