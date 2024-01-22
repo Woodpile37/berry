@@ -13,11 +13,16 @@ import {Manager, makeManager}                                                  f
 
 declare var $$SETUP_STATE: (hrs: typeof hydrateRuntimeState, basePath?: NativePath) => RuntimeState;
 
+if (eval(`false`)) console.log(`foo`);
+
 // We must copy the fs into a local, because otherwise
 // 1. we would make the NodeFS instance use the function that we patched (infinite loop)
 // 2. Object.create(fs) isn't enough, since it won't prevent the proto from being modified
 const localFs: typeof fs = {...fs};
 const nodeFs = new NodeFS(localFs);
+
+// This is just a test, I'll remove it asap
+(nodeFs as any).__test = true;
 
 const defaultRuntimeState = $$SETUP_STATE(hydrateRuntimeState);
 const defaultPnpapiResolution = __filename;
